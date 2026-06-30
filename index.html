@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>QA Test Case Generator</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="app-header">
+    <h1>🧪 QA Test Case Generator</h1>
+    <p class="subtitle">Describe your feature, and generate structured test cases instantly — runs entirely in your browser.</p>
+  </header>
+
+  <main class="layout">
+    <!-- ============ INPUT PANEL ============ -->
+    <section class="panel" aria-label="Inputs">
+      <h2>1. Describe the feature</h2>
+
+      <form id="tc-form" autocomplete="off">
+        <label>
+          Feature / Module name <span class="req">*</span>
+          <input type="text" id="feature" placeholder="e.g. User Login" required />
+        </label>
+
+        <label>
+          User story / Description
+          <textarea id="description" rows="2"
+            placeholder="As a user, I want to log in so that I can access my account."></textarea>
+        </label>
+
+        <label>
+          Acceptance criteria / Requirements
+          <span class="hint">One per line. Each becomes a positive functional test.</span>
+          <textarea id="criteria" rows="4"
+            placeholder="Valid email and password logs the user in&#10;Wrong password shows an error message&#10;User can reset password via 'Forgot password'"></textarea>
+        </label>
+
+        <fieldset>
+          <legend>Input fields (drives boundary &amp; negative tests)</legend>
+          <div id="fields-container"></div>
+          <button type="button" class="btn-secondary" id="add-field">+ Add input field</button>
+        </fieldset>
+
+        <fieldset>
+          <legend>Test categories to generate</legend>
+          <div class="checkbox-grid">
+            <label class="chk"><input type="checkbox" class="cat" value="functional" checked /> Functional (positive)</label>
+            <label class="chk"><input type="checkbox" class="cat" value="negative" checked /> Negative</label>
+            <label class="chk"><input type="checkbox" class="cat" value="boundary" checked /> Boundary / Limits</label>
+            <label class="chk"><input type="checkbox" class="cat" value="ui" /> UI / Usability</label>
+            <label class="chk"><input type="checkbox" class="cat" value="security" /> Security</label>
+            <label class="chk"><input type="checkbox" class="cat" value="performance" /> Performance</label>
+            <label class="chk"><input type="checkbox" class="cat" value="accessibility" /> Accessibility</label>
+          </div>
+        </fieldset>
+
+        <label class="inline">
+          Default priority
+          <select id="priority">
+            <option>High</option>
+            <option selected>Medium</option>
+            <option>Low</option>
+          </select>
+        </label>
+
+        <div class="actions">
+          <button type="submit" class="btn-primary">Generate test cases</button>
+          <button type="button" class="btn-secondary" id="load-sample">Load sample</button>
+          <button type="button" class="btn-secondary" id="reset-btn">Reset</button>
+        </div>
+      </form>
+    </section>
+
+    <!-- ============ OUTPUT PANEL ============ -->
+    <section class="panel" aria-label="Generated test cases">
+      <div class="output-header">
+        <h2>2. Generated test cases <span id="count-badge" class="badge" hidden>0</span></h2>
+        <div class="output-actions">
+          <input type="search" id="filter" placeholder="Filter…" hidden />
+          <button type="button" class="btn-secondary" id="copy-btn" disabled>Copy</button>
+          <button type="button" class="btn-secondary" id="csv-btn" disabled>Export CSV</button>
+        </div>
+      </div>
+
+      <div id="empty-state" class="empty">
+        <p>No test cases yet.</p>
+        <p class="hint">Fill in the form and click <strong>Generate test cases</strong>, or click <strong>Load sample</strong> to see an example.</p>
+      </div>
+
+      <div id="results-wrapper" hidden>
+        <table id="results">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Category</th>
+              <th>Title</th>
+              <th>Steps</th>
+              <th>Expected result</th>
+              <th>Priority</th>
+            </tr>
+          </thead>
+          <tbody id="results-body"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <footer class="app-footer">
+    <p>Open this page in Chrome — everything runs locally, no data leaves your machine.</p>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>
