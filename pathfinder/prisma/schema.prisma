@@ -1,0 +1,105 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Profile {
+  id        String    @id
+  role      String // "student" | "parent"
+  name      String
+  grade     Int
+  dob       DateTime?
+  interests String
+  strengths String
+  notes     String
+  pinHash   String
+  updatedAt DateTime  @updatedAt
+}
+
+model Mentor {
+  id            String  @id
+  memorySummary String  @default("")
+  // §7 output check: when a reply exceeds 250 words, apply
+  // instruction pressure on the next turn.
+  pressureNext  Boolean @default(false)
+}
+
+model Message {
+  id        String   @id @default(cuid())
+  mentorId  String
+  role      String // "user" | "assistant"
+  content   String
+  // §7: sensitive-topic messages are flagged and never enter
+  // mentor memory summaries.
+  flagged   Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([mentorId, createdAt])
+}
+
+model SessionLog {
+  id        String   @id @default(cuid())
+  mentorId  String
+  summary   String
+  createdAt DateTime @default(now())
+}
+
+model Task {
+  id           String    @id @default(cuid())
+  stage        String // g8|g9|g10|g11|g12|dec|uni
+  category     String // Music|Competition|Writing|Explore|Strategy|Academics
+  title        String
+  status       String    @default("todo") // todo|doing|done|suggested
+  due          DateTime?
+  artifactLink String?
+  notes        String?
+  source       String    @default("seed") // seed|user|mentor|parent
+  createdAt    DateTime  @default(now())
+}
+
+model PortfolioEntry {
+  id          String   @id @default(cuid())
+  type        String // performance|award|publication|project|recording|repertoire
+  title       String
+  date        DateTime
+  description String
+  link        String?
+  createdAt   DateTime @default(now())
+}
+
+model PracticeLog {
+  id      String   @id @default(cuid())
+  date    DateTime @unique
+  minutes Int
+  note    String?
+}
+
+model JournalEntry {
+  id        String   @id @default(cuid())
+  text      String
+  kind      String // "win" | "spark"
+  createdAt DateTime @default(now())
+}
+
+model Deadline {
+  id                String    @id @default(cuid())
+  name              String
+  typicalWindow     String
+  eligibility       String
+  url               String
+  relevantFromGrade Int
+  nextDate          DateTime?
+  category          String
+}
+
+model Usage {
+  id        String   @id @default(cuid())
+  model     String
+  inTok     Int
+  outTok    Int
+  createdAt DateTime @default(now())
+}

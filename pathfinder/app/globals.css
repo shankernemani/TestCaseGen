@@ -1,0 +1,43 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* §8 Kutcheri — quiet everywhere except the Arohanam. */
+
+body {
+  @apply bg-jasmine text-ink antialiased;
+  line-height: 1.6; /* generous line-height */
+}
+
+/* Visible focus rings, always (§8 accessibility). */
+:focus-visible {
+  outline: 2px solid #0e6e6b;
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Respect prefers-reduced-motion (§8 motion rule). */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+@layer components {
+  .card {
+    @apply rounded-2xl border border-mist bg-white p-4;
+  }
+  .btn-primary {
+    @apply inline-flex min-h-[44px] items-center justify-center rounded-xl bg-peacock px-4 py-2 font-medium text-white transition-colors hover:bg-peacock-dark disabled:opacity-50;
+  }
+  .btn-quiet {
+    @apply inline-flex min-h-[44px] items-center justify-center rounded-xl border border-mist bg-white px-4 py-2 font-medium text-ink transition-colors hover:border-peacock disabled:opacity-50;
+  }
+  .tap-target {
+    @apply min-h-[44px] min-w-[44px];
+  }
+}
