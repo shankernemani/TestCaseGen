@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="112" fill="#0E6E6B"/>
+  <!-- seven ascending swara nodes -->
+  <circle cx="96" cy="392" r="26" fill="#FBF9F3" opacity="0.55"/>
+  <circle cx="150" cy="356" r="26" fill="#FBF9F3" opacity="0.65"/>
+  <circle cx="204" cy="320" r="26" fill="#FBF9F3" opacity="0.75"/>
+  <circle cx="258" cy="284" r="28" fill="#E8A020"/>
+  <circle cx="312" cy="248" r="26" fill="#FBF9F3" opacity="0.85"/>
+  <circle cx="366" cy="212" r="26" fill="#FBF9F3" opacity="0.92"/>
+  <circle cx="420" cy="176" r="26" fill="#FBF9F3"/>
+  <text x="258" y="296" font-family="Georgia, serif" font-size="30" font-weight="bold" fill="#232B36" text-anchor="middle">Ma</text>
+</svg>
