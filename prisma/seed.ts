@@ -101,6 +101,18 @@ async function main() {
           source: "meera",
           capstoneType: "innovative",
         },
+        // The one paid item the spec endorses (§0, Priya's knowledge): human
+        // ex-AO judgment, bought à la carte at the end instead of bundled for
+        // five years. Lives on the Grade 12 stage of the roadmap; no due date
+        // so it doesn't crowd near-term goals out of "This week" or mentor
+        // context.
+        {
+          title:
+            "Book a one-off application review with an independent former admissions officer (the one paid item worth it — à la carte, not a 5-year bundle)",
+          status: "open",
+          stage: 5,
+          source: "priya",
+        },
       ],
     });
   }
@@ -180,6 +192,14 @@ async function main() {
           url: "https://www.irisnationalfair.org",
           mentorId: "arjun",
           notes: `${verify} A music-cognition project qualifies.`,
+        },
+        {
+          title:
+            "Start researching independent ex-admissions-officer review services (book one for Grade 12 application season)",
+          date: new Date("2030-04-15"),
+          mentorId: "priya",
+          notes:
+            "Grade 11 spring. One-off application/essay reviews by former admissions officers cost hundreds, not thousands — compare a few, check real AO credentials, book for autumn.",
         },
       ],
     });
