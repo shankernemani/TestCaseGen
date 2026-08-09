@@ -115,10 +115,8 @@ export default function ChatClient({
 
   return (
     <div className="flex h-full flex-col">
-      <div
-        ref={scrollRef}
-        className="flex-1 space-y-3 overflow-y-auto px-4 pb-4 pt-3"
-      >
+      <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 pb-4 pt-3">
+        <div className="mx-auto w-full max-w-3xl space-y-3">
         {messages.length === 0 && (
           <div className={`rounded-2xl rounded-tl-sm ${MENTOR_BG_SOFT[color]} p-3 text-sm leading-relaxed`}>
             {opener}
@@ -151,12 +149,14 @@ export default function ChatClient({
         )}
         {error && <p className="text-center text-xs text-madder">{error}</p>}
         <div ref={bottomRef} />
+        </div>
       </div>
 
       <form
         onSubmit={send}
-        className="sticky bottom-0 flex items-end gap-2 border-t border-silk-200 bg-silk-50 px-3 py-2.5 pb-[calc(env(safe-area-inset-bottom)+10px)]"
+        className="sticky bottom-0 border-t border-silk-200 bg-white/90 px-3 py-2.5 pb-[calc(env(safe-area-inset-bottom)+10px)] backdrop-blur-xl"
       >
+        <div className="mx-auto flex w-full max-w-3xl items-end gap-2">
         <textarea
           value={input}
           onChange={(e) => setInput(e.target.value)}
@@ -174,10 +174,11 @@ export default function ChatClient({
           type="submit"
           disabled={busy || input.trim() === ""}
           aria-label="Send"
-          className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-silk-50 disabled:opacity-40 ${MENTOR_BG[color]}`}
+          className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-white disabled:opacity-40 ${MENTOR_BG[color]}`}
         >
           <ArrowUp size={20} strokeWidth={2.5} />
         </button>
+        </div>
       </form>
     </div>
   );

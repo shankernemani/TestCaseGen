@@ -47,7 +47,7 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="flex min-h-dvh flex-col justify-center gap-8 px-6 py-10">
+    <main className="mx-auto flex min-h-dvh w-full max-w-sm flex-col justify-center gap-8 px-6 py-10">
       <div className="text-center">
         <h1 className="font-display text-4xl font-bold text-peacock-700">
           Pathfinder

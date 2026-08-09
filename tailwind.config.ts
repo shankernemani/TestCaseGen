@@ -13,21 +13,23 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        // Surfaces: warm silk/ivory, like a concert-hall sari border
+        // Surfaces: Apple-style neutral system — near-white canvas, pure
+        // white cards, hairline borders. The Kutcheri identity lives in the
+        // five mentor accents + gold, not in tinted backgrounds.
         silk: {
-          50: "#FDFBF5",
-          100: "#F8F3E7",
-          200: "#F1E7D0",
-          300: "#E5D5B0",
+          50: "#FFFFFF",
+          100: "#F5F5F7",
+          200: "#E8E8ED",
+          300: "#D2D2D7",
         },
         ink: {
-          DEFAULT: "#2B2118",
-          soft: "#5C5044",
-          faint: "#8C8072",
+          DEFAULT: "#1D1D1F",
+          soft: "#6E6E73",
+          faint: "#86868B",
         },
         gold: {
-          DEFAULT: "#C99700",
-          soft: "#E7C55C",
+          DEFAULT: "#BF8A00",
+          soft: "#E3C566",
         },
         peacock: {
           50: "#EAF4F4",
@@ -86,12 +88,22 @@ const config: Config = {
         },
       },
       fontFamily: {
-        display: ["Georgia", "Cambria", "'Times New Roman'", "serif"],
-        body: [
-          "system-ui",
+        display: [
           "-apple-system",
+          "BlinkMacSystemFont",
+          "'SF Pro Display'",
           "'Segoe UI'",
           "Roboto",
+          "Helvetica",
+          "sans-serif",
+        ],
+        body: [
+          "-apple-system",
+          "BlinkMacSystemFont",
+          "'SF Pro Text'",
+          "'Segoe UI'",
+          "Roboto",
+          "Helvetica",
           "sans-serif",
         ],
       },
@@ -99,7 +111,8 @@ const config: Config = {
         card: "1rem",
       },
       boxShadow: {
-        card: "0 1px 3px rgba(43, 33, 24, 0.08), 0 4px 16px rgba(43, 33, 24, 0.06)",
+        card: "0 1px 2px rgba(0, 0, 0, 0.04), 0 8px 24px rgba(0, 0, 0, 0.05)",
+        pop: "0 2px 8px rgba(0, 0, 0, 0.06), 0 16px 40px rgba(0, 0, 0, 0.08)",
       },
     },
   },

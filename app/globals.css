@@ -13,12 +13,15 @@
 
 @layer components {
   .card {
-    @apply bg-silk-50 rounded-card shadow-card border border-silk-200 p-4;
+    @apply bg-white rounded-card shadow-card border border-silk-200 p-4;
   }
   .btn-primary {
-    @apply inline-flex items-center justify-center gap-2 rounded-full bg-peacock px-5 py-2.5 text-sm font-semibold text-silk-50 active:bg-peacock-600 disabled:opacity-50;
+    @apply inline-flex items-center justify-center gap-2 rounded-full bg-peacock px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-peacock-600 active:bg-peacock-700 disabled:opacity-50;
   }
   .input {
-    @apply w-full rounded-xl border border-silk-300 bg-white px-4 py-3 text-base outline-none focus:border-peacock;
+    @apply w-full rounded-xl border border-silk-300 bg-white px-4 py-3 text-base outline-none transition-shadow focus:border-peacock focus:ring-2 focus:ring-peacock-100;
+  }
+  .font-display {
+    letter-spacing: -0.02em;
   }
 }

@@ -15,7 +15,7 @@ const TABS = [
 export default function BottomNav() {
   const pathname = usePathname();
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-20 border-t border-silk-200 bg-silk-50/95 backdrop-blur">
+    <nav className="fixed inset-x-0 bottom-0 z-20 border-t border-silk-200 bg-white/90 backdrop-blur-xl md:hidden">
       <div className="mx-auto flex max-w-lg items-stretch justify-around pb-[env(safe-area-inset-bottom)]">
         {TABS.map(({ href, label, Icon }) => {
           const active =

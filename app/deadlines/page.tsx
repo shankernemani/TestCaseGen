@@ -17,15 +17,14 @@ export default async function DeadlinesPage() {
   const now = new Date();
 
   return (
-    <main className="flex flex-col gap-4 px-4 pb-24 pt-6">
-      {user.role === "PARENT" && (
-        <Link
-          href="/parent"
-          className="flex items-center gap-1 text-sm font-medium text-peacock-600"
-        >
-          <ChevronLeft size={16} /> Back to parent view
-        </Link>
-      )}
+    <main className="mx-auto flex max-w-3xl flex-col gap-4 px-4 pb-24 pt-6 md:px-8 md:pb-12 md:pt-10">
+      <Link
+        href={user.role === "PARENT" ? "/parent" : "/"}
+        className="flex items-center gap-1 text-sm font-medium text-peacock-600"
+      >
+        <ChevronLeft size={16} />
+        {user.role === "PARENT" ? "Back to parent view" : "Back to Today"}
+      </Link>
       <div>
         <h1 className="font-display text-2xl font-bold">Deadlines</h1>
         <p className="text-sm text-ink-soft">

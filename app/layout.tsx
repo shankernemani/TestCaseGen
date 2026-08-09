@@ -29,9 +29,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body>
-        <div className="mx-auto min-h-dvh max-w-lg">{children}</div>
-      </body>
+      <body className="min-h-dvh">{children}</body>
     </html>
   );
 }

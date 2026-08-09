@@ -46,7 +46,7 @@ export default async function ParentPage() {
     .slice(0, 5);
 
   return (
-    <main className="flex flex-col gap-4 px-4 pb-10 pt-6">
+    <main className="mx-auto flex max-w-5xl flex-col gap-4 px-4 pb-10 pt-6 md:px-8 md:pt-10">
       <header className="flex items-start justify-between">
         <div>
           <h1 className="font-display text-2xl font-bold">Parent view</h1>
@@ -148,7 +148,7 @@ export default async function ParentPage() {
         <h2 className="mb-2 px-1 text-sm font-bold text-ink-soft">
           Mentor session summaries
         </h2>
-        <div className="flex flex-col gap-2">
+        <div className="grid gap-2 sm:grid-cols-2">
           {MENTOR_IDS.map((id) => {
             const memory = memories.find((m) => m.mentorId === id);
             const mentor = MENTORS[id];

@@ -2,9 +2,25 @@
 // The chat step needs a real ANTHROPIC_API_KEY; without one it verifies the
 // graceful error path instead of the reply.
 import { expect, test } from "@playwright/test";
+import fs from "fs";
 
 const STUDENT_PIN = process.env.SEED_STUDENT_PIN ?? "1213";
-const HAS_KEY = Boolean(process.env.ANTHROPIC_API_KEY);
+
+// The server reads the key from .env (which this process doesn't load), so
+// check both places — and treat the .env.example placeholder as "no key".
+function hasApiKey(): boolean {
+  if (process.env.ANTHROPIC_API_KEY) return true;
+  try {
+    const match = fs
+      .readFileSync(".env", "utf8")
+      .match(/^ANTHROPIC_API_KEY=(.+)$/m);
+    const value = match?.[1]?.trim() ?? "";
+    return value !== "" && value !== "sk-ant-...";
+  } catch {
+    return false;
+  }
+}
+const HAS_KEY = hasApiKey();
 
 test("login → mentor chat → send message", async ({ page }) => {
   await page.goto("/login");
@@ -18,13 +34,16 @@ test("login → mentor chat → send message", async ({ page }) => {
   await page.getByRole("link", { name: "Mentors" }).click();
   await page.getByRole("link", { name: /Anaya/ }).click();
 
+  // Unique per run: messages persist in the DB, so a fixed string would
+  // match bubbles left over from earlier test runs.
+  const message = `Hi Anaya! Smoke test ${Date.now()}`;
   const box = page.getByPlaceholder("Message Anaya…");
-  await box.fill("Hi Anaya! Just saying hello.");
+  await box.fill(message);
   await page.getByRole("button", { name: "Send" }).click();
 
   if (HAS_KEY) {
     // The optimistic bubble stays and a real reply streams in.
-    await expect(page.getByText("Hi Anaya! Just saying hello.")).toBeVisible();
+    await expect(page.getByText(message)).toBeVisible();
     await expect(page.getByText(/Anaya is thinking…/)).toBeHidden({
       timeout: 60_000,
     });
@@ -36,6 +55,6 @@ test("login → mentor chat → send message", async ({ page }) => {
     await expect(
       page.getByText(/ANTHROPIC_API_KEY|couldn't reply/),
     ).toBeVisible({ timeout: 30_000 });
-    await expect(box).toHaveValue("Hi Anaya! Just saying hello.");
+    await expect(box).toHaveValue(message);
   }
 });

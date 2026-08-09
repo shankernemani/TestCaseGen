@@ -27,7 +27,7 @@ export default async function PracticePage() {
   const weekDays = new Set(week.map((l) => l.day)).size;
 
   return (
-    <main className="flex flex-col gap-4 px-4 pb-24 pt-6">
+    <main className="mx-auto flex max-w-3xl flex-col gap-4 px-4 pb-24 pt-6 md:px-8 md:pb-12 md:pt-10">
       <div>
         <h1 className="font-display text-2xl font-bold">Practice log</h1>
         <p className="text-sm text-ink-soft">

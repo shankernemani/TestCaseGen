@@ -29,18 +29,20 @@ export default async function MentorChatPage({
 
   return (
     <div className="flex h-dvh flex-col">
-      <header className="flex items-center gap-3 border-b border-silk-200 bg-silk-50 px-3 py-2.5">
-        <Link href="/mentors" aria-label="Back" className="p-1 text-ink-soft">
-          <ChevronLeft size={22} />
-        </Link>
-        <span
-          className={`flex h-9 w-9 items-center justify-center rounded-full font-display font-bold text-silk-50 ${MENTOR_BG[mentor.color]}`}
-        >
-          {mentor.name[0]}
-        </span>
-        <div className="leading-tight">
-          <p className="font-semibold">{mentor.name}</p>
-          <p className="text-xs text-ink-faint">{mentor.role}</p>
+      <header className="border-b border-silk-200 bg-white/90 backdrop-blur-xl">
+        <div className="mx-auto flex w-full max-w-3xl items-center gap-3 px-3 py-2.5">
+          <Link href="/mentors" aria-label="Back" className="p-1 text-ink-soft">
+            <ChevronLeft size={22} />
+          </Link>
+          <span
+            className={`flex h-9 w-9 items-center justify-center rounded-full font-display font-bold text-white ${MENTOR_BG[mentor.color]}`}
+          >
+            {mentor.name[0]}
+          </span>
+          <div className="leading-tight">
+            <p className="font-semibold">{mentor.name}</p>
+            <p className="text-xs text-ink-faint">{mentor.role}</p>
+          </div>
         </div>
       </header>
       <div className="min-h-0 flex-1">
