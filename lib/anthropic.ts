@@ -64,25 +64,8 @@ export interface SessionSummary {
   commitments: string[];
 }
 
-/** Background Haiku pass (§2.3): session summary + rolling memory merge +
- * commitment extraction. Returns null if the model output can't be parsed —
- * callers should skip the memory update rather than corrupt it. */
-export async function summarizeSession(
-  prompt: string,
-): Promise<SessionSummary | null> {
-  const response = await anthropic().messages.create({
-    model: BACKGROUND_MODEL,
-    // The prompt asks for up to ~520 words of JSON; 1024 tokens truncated it,
-    // which stalled a mentor's memory permanently (parse failure -> retry
-    // with the same oversized transcript).
-    max_tokens: 2048,
-    messages: [{ role: "user", content: prompt }],
-  });
-  const text = response.content
-    .filter((block) => block.type === "text")
-    .map((block) => block.text)
-    .join("")
-    .trim();
+/** Parse the summary-pass JSON. Exported for the OpenAI fallback path. */
+export function parseSessionSummary(text: string): SessionSummary | null {
   try {
     // Tolerate a stray markdown fence despite the instruction not to use one.
     const jsonText = text.replace(/^```(?:json)?\s*/, "").replace(/```\s*$/, "");
@@ -104,4 +87,33 @@ export async function summarizeSession(
   } catch {
     return null;
   }
+}
+
+/** Background pass (§2.3): session summary + rolling memory merge +
+ * commitment extraction. Haiku first; falls through to the OpenAI fallback
+ * when the Anthropic call fails (e.g. exhausted credits). Returns null if no
+ * provider produced parseable output — callers skip the memory update. */
+export async function summarizeSession(
+  prompt: string,
+): Promise<SessionSummary | null> {
+  let text: string;
+  try {
+    const response = await anthropic().messages.create({
+      model: BACKGROUND_MODEL,
+      // The prompt asks for up to ~520 words of JSON; 1024 tokens truncated
+      // it, which stalled a mentor's memory permanently.
+      max_tokens: 2048,
+      messages: [{ role: "user", content: prompt }],
+    });
+    text = response.content
+      .filter((block) => block.type === "text")
+      .map((block) => block.text)
+      .join("")
+      .trim();
+  } catch (err) {
+    const { hasOpenAI, openaiSummarize } = await import("./openai");
+    if (!hasOpenAI()) throw err;
+    text = await openaiSummarize(prompt);
+  }
+  return parseSessionSummary(text);
 }

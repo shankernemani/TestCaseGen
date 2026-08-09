@@ -3,7 +3,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
 import { isMentorId } from "@/lib/mentors";
-import { mentorReplyStream } from "@/lib/anthropic";
+import { getMentorSource, type MentorSource } from "@/lib/mentorSource";
 import {
   buildMentorSystemPrompt,
   closeIdleSession,
@@ -42,8 +42,7 @@ export async function POST(req: Request) {
   // If she's returning after >30 idle minutes — or the current session has
   // outgrown the history window — fold it into mentor memory first. The
   // force-close path is deliberately synchronous: the message that crosses
-  // the threshold pays one Haiku round-trip so no context is ever lost
-  // (running it detached would race the reply we're about to stream).
+  // the threshold pays one summarization round-trip so no context is lost.
   try {
     const pendingCount = await prisma.chatMessage.count({
       where: { mentorId, summarized: false },
@@ -75,22 +74,18 @@ export async function POST(req: Request) {
     { role: "user" as const, content: message },
   ];
 
-  // Open the stream and await the FIRST event before responding, so that
-  // auth/connection failures surface as a clean JSON error instead of a
-  // broken stream.
-  let stream: ReturnType<typeof mentorReplyStream>;
-  let iterator: AsyncIterator<unknown>;
-  let first: IteratorResult<unknown>;
+  // Anthropic primary, OpenAI fallback; either way the provider's first
+  // round-trip completes before we commit to a streamed response, so
+  // auth/credit failures surface as clean JSON errors.
+  let source: MentorSource;
   try {
-    stream = mentorReplyStream(system, turns);
-    iterator = stream[Symbol.asyncIterator]();
-    first = await iterator.next();
+    source = await getMentorSource(system, turns);
   } catch (err) {
-    const message = err instanceof Error ? err.message : "";
-    const detail = message.includes("credit balance")
-      ? "Anthropic API credits are exhausted — a parent needs to top up at console.anthropic.com."
-      : message.includes("ANTHROPIC_API_KEY")
-        ? message
+    const message_ = err instanceof Error ? err.message : "";
+    const detail = message_.includes("credit balance")
+      ? "AI credits are exhausted — a parent needs to top up the API account."
+      : message_.includes("ANTHROPIC_API_KEY")
+        ? message_
         : "The mentor couldn't reply right now. Please try again in a moment.";
     return NextResponse.json({ error: detail }, { status: 502 });
   }
@@ -108,40 +103,19 @@ export async function POST(req: Request) {
   const encoder = new TextEncoder();
   const readable = new ReadableStream<Uint8Array>({
     start(controller) {
-      const forward = (event: unknown) => {
-        if (clientGone) return;
-        const e = event as {
-          type?: string;
-          delta?: { type?: string; text?: string };
-        };
-        if (
-          e.type === "content_block_delta" &&
-          e.delta?.type === "text_delta" &&
-          typeof e.delta.text === "string"
-        ) {
-          try {
-            controller.enqueue(encoder.encode(e.delta.text));
-          } catch {
-            clientGone = true; // client disconnected; keep consuming to persist
-          }
-        }
-      };
       const persistTask = (async () => {
         try {
-          if (!first.done) forward(first.value);
-          for (;;) {
-            const result = await iterator.next();
-            if (result.done) break;
-            forward(result.value);
+          for await (const delta of source.deltas) {
+            if (clientGone) continue; // keep consuming to persist
+            try {
+              controller.enqueue(encoder.encode(delta));
+            } catch {
+              clientGone = true;
+            }
           }
-          const final = await stream.finalMessage();
-          let reply = final.content
-            .filter((block) => block.type === "text")
-            .map((block) => block.text)
-            .join("\n")
-            .trim();
+          const { text, truncated } = await source.final();
           // Make a hard cutoff visible instead of persisting it as complete.
-          if (final.stop_reason === "max_tokens") reply += " …";
+          const reply = truncated && text ? `${text} …` : text;
           if (reply) {
             await prisma.chatMessage.create({
               data: { mentorId, role: "assistant", content: reply },
@@ -177,6 +151,7 @@ export async function POST(req: Request) {
     headers: {
       "Content-Type": "text/plain; charset=utf-8",
       "Cache-Control": "no-store",
+      "X-Mentor-Provider": source.provider,
     },
   });
 }
