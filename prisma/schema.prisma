@@ -32,14 +32,29 @@ model AuthSession {
 
 // Single-row student profile injected into every mentor prompt (§2.1).
 model StudentProfile {
-  id        String   @id @default("sarvagna")
-  grade     Int      @default(8)
-  birthYear Int      @default(2012)
-  interests String
-  strengths String
-  notes     String
-  thread    String // the one-line narrative spine
-  updatedAt DateTime @updatedAt
+  id            String    @id @default("sarvagna")
+  grade         Int       @default(8)
+  birthYear     Int       @default(2012)
+  interests     String
+  strengths     String
+  notes         String
+  thread        String // the one-line narrative spine
+  // Set when a Priya session closes; drives the monthly check-in nudge.
+  lastCheckInAt DateTime?
+  updatedAt     DateTime  @updatedAt
+}
+
+// Carnatic practice/performance log (Meera's core focus). One row per
+// practice entry; `day` is the Asia/Kolkata date string.
+model PracticeLog {
+  id        String   @id @default(cuid())
+  day       String // "YYYY-MM-DD"
+  minutes   Int
+  what      String // piece/exercise practiced
+  note      String?
+  createdAt DateTime @default(now())
+
+  @@index([day])
 }
 
 // One row per mentor chat message. mentorId ∈ priya|meera|arjun|dev|anaya.

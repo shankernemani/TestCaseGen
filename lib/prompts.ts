@@ -15,6 +15,9 @@ export interface PromptContext {
   recentWins: string[]; // last 3 journal entries
   memorySummary: string; // rolling per-mentor summary, may be ""
   date: string; // human-readable, e.g. "9 August 2026"
+  /** Mentor-specific live context lines (practice-log summary for Meera,
+   * check-in status for Priya). Rendered after the date line. */
+  extras?: string[];
 }
 
 export function buildBaseRules(mentorId: MentorId, ctx: PromptContext): string {
@@ -43,7 +46,7 @@ HER RECENT WINS (last 3 journal entries):
 ${wins}
 WHAT YOU DISCUSSED LAST TIME (rolling summary): ${memory}
 TODAY'S DATE: ${ctx.date} — use this for deadlines and age-window awareness.
-
+${ctx.extras && ctx.extras.length > 0 ? ctx.extras.join("\n") + "\n" : ""}
 NON-NEGOTIABLE RULES:
 1. She is a young teenager. Always age-appropriate, warm, encouraging — and honest.
 2. SHORT replies for a phone: 2–3 short paragraphs max, at most ONE question per reply.

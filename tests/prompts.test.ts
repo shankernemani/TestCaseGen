@@ -53,6 +53,20 @@ describe("buildSystemPrompt", () => {
     expect(prompt).toContain("first conversation");
   });
 
+  it("renders mentor-specific extras after the date line", () => {
+    const prompt = buildSystemPrompt("meera", {
+      ...ctx,
+      extras: ["HER PRACTICE LOG: Practiced 4 of the last 7 days."],
+    });
+    expect(prompt).toContain("HER PRACTICE LOG: Practiced 4 of the last 7 days.");
+    expect(prompt.indexOf("TODAY'S DATE")).toBeLessThan(
+      prompt.indexOf("HER PRACTICE LOG"),
+    );
+    expect(prompt.indexOf("HER PRACTICE LOG")).toBeLessThan(
+      prompt.indexOf("NON-NEGOTIABLE RULES"),
+    );
+  });
+
   it("keeps signature rituals in the right personas", () => {
     expect(buildSystemPrompt("arjun", ctx)).toContain("SWIM-LANE AUDIT");
     expect(buildSystemPrompt("anaya", ctx)).toContain("PIE CHECK");

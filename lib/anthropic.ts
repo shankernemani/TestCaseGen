@@ -47,6 +47,17 @@ export async function mentorReply(
     .trim();
 }
 
+/** Streaming variant of mentorReply — returns the SDK MessageStream so the
+ * API route can forward text deltas and persist the final message. */
+export function mentorReplyStream(system: string, turns: ChatTurn[]) {
+  return anthropic().messages.stream({
+    model: CHAT_MODEL,
+    max_tokens: 1024,
+    system,
+    messages: turns.map((t) => ({ role: t.role, content: t.content })),
+  });
+}
+
 export interface SessionSummary {
   session_summary: string;
   memory_summary: string;

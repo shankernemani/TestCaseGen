@@ -56,14 +56,44 @@ Sa = Grade 8 … Pa = Grade 12, Dha = Applications, Ni = University.
 
 ### Phase plan (reconstructed)
 
-- **Phase 1 (this build):** scaffold, design system, DB, auth, the five
-  mentors with memory, dashboard, roadmap, journal, parent view, tests.
-- **Phase 2 (suggested next):** streaming chat responses, profile/thread
-  editor, deadline CRUD + more seeded competition calendar, practice/
-  performance log for Meera, PIE-check and swim-lane-audit structured flows.
+- **Phase 1:** scaffold, design system, DB, auth, the five mentors with
+  memory, dashboard, roadmap, journal, parent view, tests. ✅ shipped
+- **Phase 2:** streaming replies, idle-session memory sweep, profile/thread
+  editor, Carnatic practice log, deadline management + seeded competition
+  calendar, Priya's monthly check-in cadence, JSON backup export. ✅ shipped
+  (details below)
 - **Phase 3 (suggested):** repertoire/recording archive (arts supplement),
-  monthly check-in cadence automation for Priya, essay-seed mining views for
-  Dev, data export, optional Vercel + Turso deployment.
+  essay-seed mining views for Dev, PIE-check / swim-lane structured flows if
+  the conversational versions prove insufficient, optional Vercel + Turso
+  deployment with automated backups.
+
+## Phase 2 details
+
+- **Streaming chat** — `/api/chat` now streams text deltas (plain-text body);
+  the first stream event is awaited server-side so auth/connection failures
+  still return clean JSON errors. Messages persist after the stream completes.
+- **Memory sweep** — `POST /api/memory/sweep` closes idle sessions for every
+  mentor; fired in the background whenever the dashboard or parent view
+  loads (`MemorySweeper`). Fixes the Phase 1 gap where a mentor's session
+  only got summarized when she reopened that same mentor.
+- **Profile editor** — `/settings`: thread, grade, interests, strengths,
+  notes (Anaya's "suggest she edit it" now has a destination). Grade drives
+  the Arohanam stage and mentor age-window context.
+- **Practice log** — `/practice` (new bottom-nav tab): quick entry, weekly
+  totals, entries feed the activity streak, and a 7-day summary is injected
+  into Meera's prompt context (`HER PRACTICE LOG: …`).
+- **Deadlines** — `/deadlines`: add/delete with links; the dashboard's
+  45-day "Coming up" card links to it. The seed now carries a nine-entry
+  competition calendar from Arjun's swim-lane map, every entry flagged
+  "verify on the official site."
+- **Monthly check-in** — closing a Priya session stamps
+  `StudentProfile.lastCheckInAt`; the dashboard shows a check-in nudge when
+  it's ≥30 days (or never), and Priya's prompt receives a
+  `MONTHLY CHECK-IN STATUS` line.
+- **Backup export** — `GET /api/export` returns a full JSON backup
+  (Content-Disposition download). Per the §0.7 privacy rule, raw chat
+  transcripts are included only in the student's own export, never the
+  parent's. Buttons: parent view and `/settings`.
 
 ## Running locally
 

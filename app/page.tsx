@@ -1,15 +1,17 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { format, addDays } from "date-fns";
-import { Flame, CalendarClock } from "lucide-react";
+import { Flame, CalendarClock, Settings, HeartHandshake } from "lucide-react";
 import { prisma } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
 import { capstoneMix, stageForGrade, stageProgress } from "@/lib/stages";
 import { currentStreak, toDayString } from "@/lib/streak";
+import { isCheckInDue } from "@/lib/checkin";
 import ArohanamTracker from "@/components/ArohanamTracker";
 import CapstoneMeter from "@/components/CapstoneMeter";
 import GoalList from "@/components/GoalList";
 import BottomNav from "@/components/BottomNav";
+import MemorySweeper from "@/components/MemorySweeper";
 
 export const dynamic = "force-dynamic";
 
@@ -38,6 +40,7 @@ export default async function TodayPage() {
 
   const suggested = allGoals.filter((g) => g.status === "suggested");
   const topOpen = allGoals.filter((g) => g.status === "open").slice(0, 3);
+  const checkInDue = isCheckInDue(profile?.lastCheckInAt ?? null, new Date());
 
   const hour = new Date().toLocaleString("en-US", {
     timeZone: "Asia/Kolkata",
@@ -57,12 +60,22 @@ export default async function TodayPage() {
           </h1>
           <p className="text-sm text-ink-soft">{format(new Date(), "EEEE, d MMMM")}</p>
         </div>
-        {streak > 0 && (
-          <div className="flex items-center gap-1 rounded-full bg-marigold-50 px-3 py-1.5 text-sm font-semibold text-marigold-700">
-            <Flame size={16} /> {streak}
-          </div>
-        )}
+        <div className="flex items-center gap-2">
+          {streak > 0 && (
+            <div className="flex items-center gap-1 rounded-full bg-marigold-50 px-3 py-1.5 text-sm font-semibold text-marigold-700">
+              <Flame size={16} /> {streak}
+            </div>
+          )}
+          <Link
+            href="/settings"
+            aria-label="Profile & settings"
+            className="rounded-full border border-silk-300 p-2 text-ink-soft"
+          >
+            <Settings size={18} />
+          </Link>
+        </div>
       </header>
+      <MemorySweeper />
 
       <ArohanamTracker
         currentStage={stage}
@@ -70,11 +83,29 @@ export default async function TodayPage() {
         total={progress.total}
       />
 
-      {deadlines.length > 0 && (
-        <section className="card border-marigold-200 bg-marigold-50">
-          <h2 className="mb-2 flex items-center gap-2 text-sm font-bold text-marigold-700">
+      {checkInDue && (
+        <Link
+          href="/mentors/priya"
+          className="card flex items-center gap-3 border-peacock-200 bg-peacock-50"
+        >
+          <HeartHandshake size={20} className="shrink-0 text-peacock-600" />
+          <p className="text-sm leading-snug text-peacock-700">
+            <strong>Monthly check-in time.</strong> Priya's ready to look at
+            how the month went and pick your next three actions. →
+          </p>
+        </Link>
+      )}
+
+      <section className="card border-marigold-200 bg-marigold-50">
+        <div className="mb-2 flex items-baseline justify-between">
+          <h2 className="flex items-center gap-2 text-sm font-bold text-marigold-700">
             <CalendarClock size={16} /> Coming up
           </h2>
+          <Link href="/deadlines" className="text-xs font-medium text-marigold-700">
+            Manage →
+          </Link>
+        </div>
+        {deadlines.length > 0 ? (
           <ul className="space-y-1.5">
             {deadlines.map((d) => (
               <li key={d.id} className="text-sm leading-snug">
@@ -83,8 +114,12 @@ export default async function TodayPage() {
               </li>
             ))}
           </ul>
-        </section>
-      )}
+        ) : (
+          <p className="text-sm text-marigold-700/70">
+            Nothing in the next 45 days.
+          </p>
+        )}
+      </section>
 
       {suggested.length > 0 && (
         <section>

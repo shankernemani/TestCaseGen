@@ -46,12 +46,37 @@ export default function ChatClient({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ mentorId, message: text }),
       });
-      const data = await res.json();
       if (!res.ok) {
+        const data = await res.json().catch(() => ({}) as { error?: string });
         setError(data.error ?? "Something went wrong.");
-      } else {
-        setMessages((m) => [...m, { role: "assistant", content: data.reply }]);
+        return;
       }
+      // Stream the reply into a growing assistant bubble.
+      const reader = res.body?.getReader();
+      if (!reader) {
+        setError("Something went wrong.");
+        return;
+      }
+      const decoder = new TextDecoder();
+      let acc = "";
+      let started = false;
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        acc += decoder.decode(value, { stream: true });
+        if (!started) {
+          started = true;
+          setBusy(false); // first token arrived; hide the typing indicator
+          setMessages((m) => [...m, { role: "assistant", content: acc }]);
+        } else {
+          const snapshot = acc;
+          setMessages((m) => [
+            ...m.slice(0, -1),
+            { role: "assistant", content: snapshot },
+          ]);
+        }
+      }
+      if (!started) setError("The mentor sent an empty reply — try again.");
     } catch {
       setError("Network problem — please try again.");
     } finally {

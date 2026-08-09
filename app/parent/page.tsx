@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { format } from "date-fns";
-import { Flame, ShieldCheck } from "lucide-react";
+import { Flame, ShieldCheck, Download, CalendarClock } from "lucide-react";
+import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
 import { MENTOR_IDS, MENTORS } from "@/lib/mentors";
@@ -11,6 +12,7 @@ import ArohanamTracker from "@/components/ArohanamTracker";
 import CapstoneMeter from "@/components/CapstoneMeter";
 import GoalList from "@/components/GoalList";
 import LogoutButton from "@/components/LogoutButton";
+import MemorySweeper from "@/components/MemorySweeper";
 
 export const dynamic = "force-dynamic";
 
@@ -47,6 +49,7 @@ export default async function ParentPage() {
         </div>
         <LogoutButton />
       </header>
+      <MemorySweeper />
 
       <div className="card flex items-start gap-3 border-peacock-200 bg-peacock-50">
         <ShieldCheck size={20} className="mt-0.5 shrink-0 text-peacock-600" />
@@ -78,6 +81,22 @@ export default async function ParentPage() {
 
       <ArohanamTracker currentStage={stage} done={progress.done} total={progress.total} />
       <CapstoneMeter mix={mix} />
+
+      <div className="flex gap-3">
+        <Link
+          href="/deadlines"
+          className="card flex flex-1 items-center gap-2 text-sm font-semibold text-marigold-700"
+        >
+          <CalendarClock size={18} /> Manage deadlines
+        </Link>
+        <a
+          href="/api/export"
+          download
+          className="card flex flex-1 items-center gap-2 text-sm font-semibold text-peacock-700"
+        >
+          <Download size={18} /> Backup data
+        </a>
+      </div>
 
       <section>
         <h2 className="mb-2 px-1 text-sm font-bold text-ink-soft">

@@ -10,6 +10,9 @@ import { buildSessionSummaryPrompt, buildSystemPrompt } from "./prompts";
 import { summarizeSession } from "./anthropic";
 import { stageForGrade } from "./stages";
 import { toDayString } from "./streak";
+import { practiceSummary } from "./practice";
+import { checkInContextLine } from "./checkin";
+import { MENTOR_IDS } from "./mentors";
 
 export async function loadPromptContext(
   mentorId: MentorId,
@@ -32,7 +35,27 @@ export async function loadPromptContext(
   const birthYear = profile?.birthYear ?? 2012;
   const age = new Date().getFullYear() - birthYear;
 
+  // Mentor-specific live context (§2.2 focuses): Meera coaches practice
+  // consistency, Priya runs the monthly check-in cadence.
+  const extras: string[] = [];
+  if (mentorId === "meera") {
+    const logs = await prisma.practiceLog.findMany({
+      orderBy: { day: "desc" },
+      take: 60,
+    });
+    const summary = practiceSummary(logs, toDayString(new Date()));
+    if (summary) extras.push(`HER PRACTICE LOG: ${summary}`);
+    else
+      extras.push(
+        "HER PRACTICE LOG: empty so far — gently encourage her to log her first practice session in the Practice tab.",
+      );
+  }
+  if (mentorId === "priya") {
+    extras.push(checkInContextLine(profile?.lastCheckInAt ?? null, new Date()));
+  }
+
   return {
+    extras,
     grade,
     age,
     interests: profile?.interests ?? "Interests still being explored",
@@ -117,6 +140,33 @@ export async function closeIdleSession(
         data: { title, status: "suggested", source: mentorId, stage },
       }),
     ),
+    // A closed Priya session counts as her (at least partial) monthly
+    // check-in, anchored to when the conversation actually happened.
+    ...(mentorId === "priya"
+      ? [
+          prisma.studentProfile.update({
+            where: { id: "sarvagna" },
+            data: { lastCheckInAt: last.createdAt },
+          }),
+        ]
+      : []),
   ]);
   return true;
+}
+
+/**
+ * Closes idle sessions for every mentor. Called fire-and-forget when the
+ * dashboard or parent view loads, so memory, session summaries, and suggested
+ * goals stay fresh even if she never reopens a particular mentor.
+ */
+export async function sweepIdleSessions(): Promise<number> {
+  let closed = 0;
+  for (const id of MENTOR_IDS) {
+    try {
+      if (await closeIdleSession(id)) closed++;
+    } catch {
+      // One mentor failing must not block the others.
+    }
+  }
+  return closed;
 }

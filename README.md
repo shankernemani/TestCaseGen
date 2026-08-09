@@ -5,10 +5,11 @@ Built from the specification in [`CLAUDE.md`](./CLAUDE.md); Phase 1 details in
 [`docs/BUILD_NOTES.md`](./docs/BUILD_NOTES.md).
 
 Five AI mentors (strategy, music, competitions, writing, exploration) with
-persistent memory, a goal roadmap tracked on the seven-swara **Arohanam**, a
-"Wins & Sparks" journal, deadline alerts, and a parent view that shows
-progress without surveillance. Coach, don't do: the mentors never write her
-work.
+streaming replies and persistent memory, a goal roadmap tracked on the
+seven-swara **Arohanam**, a Carnatic practice log, a "Wins & Sparks" journal,
+a competition-deadline calendar, monthly check-in nudges, JSON backups, and a
+parent view that shows progress without surveillance. Coach, don't do: the
+mentors never write her work.
 
 ## Quick start
 

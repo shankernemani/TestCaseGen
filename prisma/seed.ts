@@ -93,23 +93,81 @@ async function main() {
     });
   }
 
+  // Competition calendar from Arjun's swim-lane map (§2.2). All dates are
+  // typical-year approximations — every entry says to verify officially.
   const deadlineCount = await prisma.deadline.count();
   if (deadlineCount === 0) {
+    const verify = "Typical-year date — always verify on the official site.";
     await prisma.deadline.createMany({
       data: [
         {
-          title: "Queen's Commonwealth Essay Competition — typical submission window closes",
+          title:
+            "Queen's Commonwealth Essay — Junior (<14) submission window closes. She's inside the junior window NOW.",
           date: new Date("2026-09-15"),
           url: "https://www.royalcwsociety.org/essay-competition",
           mentorId: "arjun",
-          notes: "Confirm the exact date on the official site before planning.",
+          notes: verify,
         },
         {
-          title: "Panini Linguistics Olympiad — registration usually opens",
+          title:
+            "HBCSE IOQ registration (olympiad ladder first rung; IJSO route, <16)",
+          date: new Date("2026-10-01"),
+          url: "https://olympiads.hbcse.tifr.res.in",
+          mentorId: "arjun",
+          notes: verify,
+        },
+        {
+          title:
+            "Panini Linguistics Olympiad — registration opens (Arjun's top swim-lane pick)",
           date: new Date("2026-11-01"),
           url: "https://plo-in.org",
           mentorId: "arjun",
-          notes: "Dates vary by year; verify when registration opens.",
+          notes: verify,
+        },
+        {
+          title: "Math Kangaroo India registration closes",
+          date: new Date("2026-11-20"),
+          url: "https://mathkangaroo.in",
+          mentorId: "arjun",
+          notes: verify,
+        },
+        {
+          title:
+            "Technovation Girls — team registration opens ('music-tech for good' angle)",
+          date: new Date("2026-12-10"),
+          url: "https://technovationchallenge.org",
+          mentorId: "arjun",
+          notes: verify,
+        },
+        {
+          title:
+            "Cleveland Thyagaraja Aradhana youth competitions — entries typically due (confirm with guru first)",
+          date: new Date("2027-01-15"),
+          url: "https://aradhana.org",
+          mentorId: "meera",
+          notes: verify,
+        },
+        {
+          title: "John Locke Institute Junior Prize (<15) — essays typically due",
+          date: new Date("2027-06-30"),
+          url: "https://www.johnlockeinstitute.com/essay-competition",
+          mentorId: "arjun",
+          notes: verify,
+        },
+        {
+          title:
+            "Breakthrough Junior Challenge (13–18) — science-explainer video due; a trained performer has a real edge",
+          date: new Date("2027-06-25"),
+          url: "https://breakthroughjuniorchallenge.org",
+          mentorId: "arjun",
+          notes: verify,
+        },
+        {
+          title: "IRIS National Fair — project applications typically due",
+          date: new Date("2027-07-31"),
+          url: "https://www.irisnationalfair.org",
+          mentorId: "arjun",
+          notes: `${verify} A music-cognition project qualifies.`,
         },
       ],
     });

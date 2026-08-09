@@ -3,7 +3,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
 import { isMentorId } from "@/lib/mentors";
-import { mentorReply } from "@/lib/anthropic";
+import { mentorReplyStream } from "@/lib/anthropic";
 import {
   buildMentorSystemPrompt,
   closeIdleSession,
@@ -19,6 +19,8 @@ const Body = z.object({
 // lives in the rolling mentor memory (§2.3).
 const HISTORY_LIMIT = 30;
 
+// Streams the mentor's reply as plain text chunks. Non-OK responses are JSON
+// ({ error }); the client branches on res.ok.
 export async function POST(req: Request) {
   const user = await getCurrentUser();
   if (!user || user.role !== "STUDENT") {
@@ -56,9 +58,16 @@ export async function POST(req: Request) {
     { role: "user" as const, content: message },
   ];
 
-  let reply: string;
+  // Open the stream and await the FIRST event before responding, so that
+  // auth/connection failures surface as a clean JSON error instead of a
+  // broken stream.
+  let stream: ReturnType<typeof mentorReplyStream>;
+  let iterator: AsyncIterator<unknown>;
+  let first: IteratorResult<unknown>;
   try {
-    reply = await mentorReply(system, turns);
+    stream = mentorReplyStream(system, turns);
+    iterator = stream[Symbol.asyncIterator]();
+    first = await iterator.next();
   } catch (err) {
     const detail =
       err instanceof Error && err.message.includes("ANTHROPIC_API_KEY")
@@ -67,15 +76,58 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: detail }, { status: 502 });
   }
 
-  await prisma.$transaction([
-    prisma.chatMessage.create({
-      data: { mentorId, role: "user", content: message },
-    }),
-    prisma.chatMessage.create({
-      data: { mentorId, role: "assistant", content: reply },
-    }),
-  ]);
-  await markActivityToday();
+  // Persist the user turn up front so history is correct even if the reply
+  // stream fails partway.
+  await prisma.chatMessage.create({
+    data: { mentorId, role: "user", content: message },
+  });
 
-  return NextResponse.json({ reply });
+  const encoder = new TextEncoder();
+  const readable = new ReadableStream<Uint8Array>({
+    async start(controller) {
+      const forward = (event: unknown) => {
+        const e = event as {
+          type?: string;
+          delta?: { type?: string; text?: string };
+        };
+        if (
+          e.type === "content_block_delta" &&
+          e.delta?.type === "text_delta" &&
+          typeof e.delta.text === "string"
+        ) {
+          controller.enqueue(encoder.encode(e.delta.text));
+        }
+      };
+      try {
+        if (!first.done) forward(first.value);
+        for (;;) {
+          const result = await iterator.next();
+          if (result.done) break;
+          forward(result.value);
+        }
+        const final = await stream.finalMessage();
+        const reply = final.content
+          .filter((block) => block.type === "text")
+          .map((block) => block.text)
+          .join("\n")
+          .trim();
+        if (reply) {
+          await prisma.chatMessage.create({
+            data: { mentorId, role: "assistant", content: reply },
+          });
+          await markActivityToday();
+        }
+        controller.close();
+      } catch (err) {
+        controller.error(err);
+      }
+    },
+  });
+
+  return new Response(readable, {
+    headers: {
+      "Content-Type": "text/plain; charset=utf-8",
+      "Cache-Control": "no-store",
+    },
+  });
 }
