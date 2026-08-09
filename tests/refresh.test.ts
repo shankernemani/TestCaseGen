@@ -27,15 +27,28 @@ describe("parseRefreshPlan", () => {
     expect(plan).toEqual({ verified: [], updates: [], additions: [] });
   });
 
-  it("rejects malformed dates", () => {
-    expect(
-      parseRefreshPlan(
-        JSON.stringify({
-          updates: [],
-          additions: [{ title: "X", date: "next June" }],
-        }),
-      ),
-    ).toBeNull();
+  it("drops items with malformed dates without rejecting the plan", () => {
+    const plan = parseRefreshPlan(
+      JSON.stringify({
+        updates: [],
+        additions: [
+          { title: "Bad", date: "next June" },
+          { title: "Good", date: "2027-01-15" },
+        ],
+      }),
+    );
+    expect(plan?.additions.map((a) => a.title)).toEqual(["Good"]);
+  });
+
+  it("treats empty or malformed urls as no-url instead of failing", () => {
+    const plan = parseRefreshPlan(
+      JSON.stringify({
+        updates: [{ id: "abc", url: "", notes: "note" }],
+        additions: [{ title: "X", date: "2027-01-15", url: "not a url" }],
+      }),
+    );
+    expect(plan?.updates[0]).toEqual({ id: "abc", notes: "note" });
+    expect(plan?.additions[0].url).toBeUndefined();
   });
 
   it("returns null for non-JSON output", () => {

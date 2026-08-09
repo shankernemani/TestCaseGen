@@ -7,36 +7,42 @@ import { prisma } from "./db";
 import { anthropic, CHAT_MODEL } from "./anthropic";
 import { format } from "date-fns";
 
-const PlanSchema = z.object({
-  verified: z.array(z.object({ id: z.string() })).default([]),
-  updates: z
-    .array(
-      z.object({
-        id: z.string(),
-        date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
-        title: z.string().min(1).max(300).optional(),
-        url: z.string().url().max(500).optional(),
-        notes: z.string().max(500).optional(),
-      }),
-    )
-    .default([]),
-  additions: z
-    .array(
-      z.object({
-        title: z.string().min(1).max(300),
-        date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-        url: z.string().url().max(500).optional(),
-        notes: z.string().max(500).optional(),
-        mentorId: z.enum(["priya", "meera", "arjun", "dev", "anaya"]).optional(),
-      }),
-    )
-    .default([]),
+// An empty or malformed URL from the model becomes "no url", never a reason
+// to reject anything.
+const LenientUrl = z.preprocess(
+  (v) => {
+    if (typeof v !== "string") return undefined;
+    const s = v.trim();
+    return /^https?:\/\/\S+$/.test(s) ? s.slice(0, 500) : undefined;
+  },
+  z.string().optional(),
+);
+
+const VerifiedSchema = z.object({ id: z.string() });
+const UpdateSchema = z.object({
+  id: z.string(),
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  title: z.string().min(1).max(300).optional(),
+  url: LenientUrl,
+  notes: z.string().max(500).optional(),
+});
+const AdditionSchema = z.object({
+  title: z.string().min(1).max(300),
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  url: LenientUrl,
+  notes: z.string().max(500).optional(),
+  mentorId: z.enum(["priya", "meera", "arjun", "dev", "anaya"]).optional(),
 });
 
-export type RefreshPlan = z.infer<typeof PlanSchema>;
+export interface RefreshPlan {
+  verified: z.infer<typeof VerifiedSchema>[];
+  updates: z.infer<typeof UpdateSchema>[];
+  additions: z.infer<typeof AdditionSchema>[];
+}
 
-/** Parse the model's JSON plan (tolerating a stray markdown fence). Returns
- * null on malformed output — callers skip the apply step. Exported for tests. */
+/** Parse the model's JSON plan (tolerating fences and surrounding prose).
+ * Item-resilient: one malformed entry is dropped, never the whole plan.
+ * Returns null only when no JSON object can be parsed at all. */
 export function parseRefreshPlan(text: string): RefreshPlan | null {
   const cleaned = text
     .trim()
@@ -46,12 +52,26 @@ export function parseRefreshPlan(text: string): RefreshPlan | null {
   const start = cleaned.indexOf("{");
   const end = cleaned.lastIndexOf("}");
   if (start === -1 || end <= start) return null;
+  let raw: unknown;
   try {
-    const parsed = PlanSchema.safeParse(JSON.parse(cleaned.slice(start, end + 1)));
-    return parsed.success ? parsed.data : null;
+    raw = JSON.parse(cleaned.slice(start, end + 1));
   } catch {
     return null;
   }
+  if (typeof raw !== "object" || raw === null) return null;
+  const obj = raw as Record<string, unknown>;
+  const collect = <T>(value: unknown, schema: z.ZodType<T>): T[] => {
+    if (!Array.isArray(value)) return [];
+    return value.flatMap((item) => {
+      const parsed = schema.safeParse(item);
+      return parsed.success ? [parsed.data] : [];
+    });
+  };
+  return {
+    verified: collect(obj.verified, VerifiedSchema),
+    updates: collect(obj.updates, UpdateSchema),
+    additions: collect(obj.additions, AdditionSchema),
+  };
 }
 
 /** True when a proposed addition duplicates an existing deadline. */
@@ -61,12 +81,45 @@ export function isDuplicateDeadline(
 ): boolean {
   const normalize = (s: string) =>
     s.toLowerCase().replace(/[^a-z0-9 ]/g, "").split(/\s+/).filter(Boolean);
-  const addWords = normalize(addition.title).slice(0, 4).join(" ");
+  // Three leading words: "Math Kangaroo India 2027…" must still match
+  // "Math Kangaroo India registration…".
+  const addWords = normalize(addition.title).slice(0, 3).join(" ");
   return existing.some((e) => {
     if (addition.url && e.url && addition.url === e.url) return true;
-    const exWords = normalize(e.title).slice(0, 4).join(" ");
+    const exWords = normalize(e.title).slice(0, 3).join(" ");
     return addWords !== "" && exWords === addWords;
   });
+}
+
+/** Claude + server-side web search, with pause_turn resumption. */
+async function anthropicWebResearch(prompt: string): Promise<string> {
+  const client = anthropic();
+  const tools = [
+    { type: "web_search_20260209" as const, name: "web_search" as const, max_uses: 12 },
+  ];
+  let messages: { role: "user" | "assistant"; content: unknown }[] = [
+    { role: "user", content: prompt },
+  ];
+  let response = await client.messages.create({
+    model: CHAT_MODEL,
+    max_tokens: 4000,
+    tools,
+    messages: messages as never,
+  });
+  let guard = 0;
+  while (response.stop_reason === "pause_turn" && guard++ < 5) {
+    messages = [...messages, { role: "assistant", content: response.content }];
+    response = await client.messages.create({
+      model: CHAT_MODEL,
+      max_tokens: 4000,
+      tools,
+      messages: messages as never,
+    });
+  }
+  return response.content
+    .filter((b) => b.type === "text")
+    .map((b) => (b as { text: string }).text)
+    .join("\n");
 }
 
 const REFRESH_COOLDOWN_MS = 10 * 60 * 1000;
@@ -85,10 +138,14 @@ export async function refreshDeadlines(): Promise<RefreshResult> {
   }
   lastRefreshAt = Date.now();
 
-  const [profile, deadlines] = await Promise.all([
+  const [profile, allDeadlines] = await Promise.all([
     prisma.studentProfile.findUnique({ where: { id: "sarvagna" } }),
     prisma.deadline.findMany({ orderBy: { date: "asc" } }),
   ]);
+  // Priya's entries are admissions-process reminders (e.g. the Grade-11
+  // ex-AO research note), not web-verifiable competitions — keep them out
+  // of the review entirely.
+  const deadlines = allDeadlines.filter((d) => d.mentorId !== "priya");
 
   const today = format(new Date(), "yyyy-MM-dd");
   const existingList = deadlines
@@ -109,6 +166,7 @@ TASK — use web search to verify, preferring OFFICIAL competition sites (cross-
 1. For EACH current entry: is the title still the competition's real name, is the date the correct current/next deadline, is the age window still right for her? If a cycle has closed, roll the entry forward to the next cycle's confirmed or expected date and say "expected — verify when announced" in notes. If a competition changed name or rules (e.g. category removed), fix the title/notes.
 2. Propose up to 6 NEW deadlines she is eligible for in the next ~18 months that fit her swim lanes and are missing from the calendar. Each needs a real date you verified and the official URL.
 3. Every date must be a real finding from your searches, never from memory. Notes should be one line: eligibility window + anything time-critical.
+4. NEVER set a date in the past. This calendar is forward-looking: when you can only verify a PREVIOUS cycle's date, keep the entry pointed at the NEXT cycle's expected date (previous date + 1 year is a fine estimate) and record the verified previous-cycle date in the notes.
 
 Respond with ONLY this JSON (no fence, no prose):
 {
@@ -118,39 +176,25 @@ Respond with ONLY this JSON (no fence, no prose):
 }
 EVERY existing id must appear in exactly one of "verified" or "updates" — an entry you could not confirm goes in "updates" with a note saying what you could not confirm. Updates carry only the fields that change (id always). mentorId: arjun for competitions, meera for music, priya for admissions-process dates, dev for writing.`;
 
-  const client = anthropic();
-  const tools = [
-    { type: "web_search_20260209" as const, name: "web_search" as const, max_uses: 12 },
-  ];
-
-  let messages: { role: "user" | "assistant"; content: unknown }[] = [
-    { role: "user", content: prompt },
-  ];
-  // Server-side tool loops can pause; resume by echoing the assistant turn.
-  let response = await client.messages.create({
-    model: CHAT_MODEL,
-    max_tokens: 4000,
-    tools,
-    messages: messages as never,
-  });
-  let guard = 0;
-  while (response.stop_reason === "pause_turn" && guard++ < 5) {
-    messages = [...messages, { role: "assistant", content: response.content }];
-    response = await client.messages.create({
-      model: CHAT_MODEL,
-      max_tokens: 4000,
-      tools,
-      messages: messages as never,
-    });
+  // Anthropic (Claude + web_search) primary; OpenAI (Responses API +
+  // web_search tool) fallback — same prompt, same JSON plan contract.
+  let text: string;
+  let provider = "anthropic";
+  try {
+    text = await anthropicWebResearch(prompt);
+  } catch (err) {
+    const { hasOpenAI, openaiWebResearch } = await import("./openai");
+    if (!hasOpenAI()) throw err;
+    console.warn(
+      "[deadline-refresh] Anthropic unavailable, using OpenAI web search:",
+      err instanceof Error ? err.message.slice(0, 160) : err,
+    );
+    provider = "openai";
+    text = await openaiWebResearch(prompt);
   }
 
-  const text = response.content
-    .filter((b) => b.type === "text")
-    .map((b) => (b as { text: string }).text)
-    .join("\n");
-
   console.log(
-    `[deadline-refresh] stop=${response.stop_reason} plan text:\n${text.slice(0, 3000)}`,
+    `[deadline-refresh] provider=${provider} plan text:\n${text.slice(0, 3000)}`,
   );
   const plan = parseRefreshPlan(text);
   if (!plan) {
@@ -172,6 +216,12 @@ EVERY existing id must appear in exactly one of "verified" or "updates" — an e
   for (const u of plan.updates) {
     const existing = deadlines.find((d) => d.id === u.id);
     if (!existing) continue;
+    // Hard guardrail: the calendar is forward-looking. A model that could
+    // only verify last cycle's (past) date must not roll an entry backward.
+    if (u.date && u.date < today) {
+      console.warn(`[deadline-refresh] rejected past-dated update ${u.id} -> ${u.date}`);
+      continue;
+    }
     await prisma.deadline.update({
       where: { id: u.id },
       data: {
@@ -186,6 +236,10 @@ EVERY existing id must appear in exactly one of "verified" or "updates" — an e
 
   let added = 0;
   for (const a of plan.additions.slice(0, 8)) {
+    if (a.date < today) {
+      console.warn(`[deadline-refresh] rejected past-dated addition "${a.title.slice(0, 50)}"`);
+      continue;
+    }
     if (isDuplicateDeadline(a, deadlines)) continue;
     await prisma.deadline.create({
       data: {

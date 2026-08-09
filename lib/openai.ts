@@ -5,9 +5,15 @@
 import OpenAI from "openai";
 import type { ChatTurn } from "./anthropic";
 
-const OPENAI_CHAT_MODEL = process.env.OPENAI_CHAT_MODEL ?? "gpt-4o";
+// Latest/cheapest current tiers (verified against this key's /v1/models):
+// gpt-5.4-mini for chat + web research, gpt-5.4-nano for background work.
+// GPT-5-family models are reasoning models — they take max_completion_tokens
+// and reasoning_effort, and need headroom above the visible-reply budget.
+const OPENAI_CHAT_MODEL = process.env.OPENAI_CHAT_MODEL ?? "gpt-5.4-mini";
 const OPENAI_BACKGROUND_MODEL =
-  process.env.OPENAI_BACKGROUND_MODEL ?? "gpt-4o-mini";
+  process.env.OPENAI_BACKGROUND_MODEL ?? "gpt-5.4-nano";
+const OPENAI_RESEARCH_MODEL =
+  process.env.OPENAI_RESEARCH_MODEL ?? "gpt-5.4-mini";
 
 let _client: OpenAI | null = null;
 
@@ -41,7 +47,9 @@ export async function openaiMentorSource(
   const stream = await openai().chat.completions.create({
     model: OPENAI_CHAT_MODEL,
     stream: true,
-    max_tokens: 1024,
+    // Reasoning tokens draw from the same budget as the visible reply.
+    max_completion_tokens: 2048,
+    reasoning_effort: "low",
     messages: [
       { role: "system", content: system },
       ...turns.map((t) => ({ role: t.role, content: t.content })),
@@ -72,8 +80,33 @@ export async function openaiMentorSource(
 export async function openaiSummarize(prompt: string): Promise<string> {
   const response = await openai().chat.completions.create({
     model: OPENAI_BACKGROUND_MODEL,
-    max_tokens: 2048,
+    max_completion_tokens: 3000,
+    reasoning_effort: "low",
     messages: [{ role: "user", content: prompt }],
   });
   return response.choices[0]?.message?.content?.trim() ?? "";
+}
+
+/** Web-search-backed research via the Responses API (tool use enabled).
+ * Used by the deadline refresh when Anthropic is unavailable. */
+export async function openaiWebResearch(prompt: string): Promise<string> {
+  const response = await openai().responses.create({
+    model: OPENAI_RESEARCH_MODEL,
+    tools: [{ type: "web_search" }],
+    input: prompt,
+  });
+  // output_text is the SDK convenience aggregate; fall back to manual walk.
+  const direct = (response as { output_text?: string }).output_text;
+  if (direct && direct.trim()) return direct.trim();
+  const output = (response as { output?: unknown[] }).output ?? [];
+  return output
+    .flatMap((o) => {
+      const item = o as { type?: string; content?: { type?: string; text?: string }[] };
+      if (item.type !== "message") return [];
+      return (item.content ?? [])
+        .filter((c) => c.type === "output_text" && typeof c.text === "string")
+        .map((c) => c.text as string);
+    })
+    .join("\n")
+    .trim();
 }
