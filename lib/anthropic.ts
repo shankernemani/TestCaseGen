@@ -72,7 +72,10 @@ export async function summarizeSession(
 ): Promise<SessionSummary | null> {
   const response = await anthropic().messages.create({
     model: BACKGROUND_MODEL,
-    max_tokens: 1024,
+    // The prompt asks for up to ~520 words of JSON; 1024 tokens truncated it,
+    // which stalled a mentor's memory permanently (parse failure -> retry
+    // with the same oversized transcript).
+    max_tokens: 2048,
     messages: [{ role: "user", content: prompt }],
   });
   const text = response.content

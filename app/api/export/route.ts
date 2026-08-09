@@ -13,23 +13,15 @@ export async function GET() {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "Not signed in" }, { status: 401 });
 
-  const [
-    profile,
-    goals,
-    journalEntries,
-    deadlines,
-    practiceLogs,
-    mentorMemories,
-    activityDays,
-  ] = await Promise.all([
-    prisma.studentProfile.findUnique({ where: { id: "sarvagna" } }),
-    prisma.goal.findMany({ orderBy: { createdAt: "asc" } }),
-    prisma.journalEntry.findMany({ orderBy: { createdAt: "asc" } }),
-    prisma.deadline.findMany({ orderBy: { date: "asc" } }),
-    prisma.practiceLog.findMany({ orderBy: { day: "asc" } }),
-    prisma.mentorMemory.findMany(),
-    prisma.activityDay.findMany(),
-  ]);
+  const [profile, goals, deadlines, practiceLogs, mentorMemories, activityDays] =
+    await Promise.all([
+      prisma.studentProfile.findUnique({ where: { id: "sarvagna" } }),
+      prisma.goal.findMany({ orderBy: { createdAt: "asc" } }),
+      prisma.deadline.findMany({ orderBy: { date: "asc" } }),
+      prisma.practiceLog.findMany({ orderBy: { day: "asc" } }),
+      prisma.mentorMemory.findMany(),
+      prisma.activityDay.findMany(),
+    ]);
 
   const data: Record<string, unknown> = {
     app: "pathfinder-v2",
@@ -37,17 +29,22 @@ export async function GET() {
     exportedBy: user.role,
     profile,
     goals,
-    journalEntries,
     deadlines,
     practiceLogs,
     mentorMemories,
     activityDays,
   };
 
+  // Her own words stay hers: raw chat transcripts AND the Wins & Sparks
+  // journal are included only in the student's own backup, mirroring the UI
+  // privacy boundary. The parent's backup covers everything else.
   if (user.role === "STUDENT") {
-    data.chatMessages = await prisma.chatMessage.findMany({
-      orderBy: { createdAt: "asc" },
-    });
+    const [journalEntries, chatMessages] = await Promise.all([
+      prisma.journalEntry.findMany({ orderBy: { createdAt: "asc" } }),
+      prisma.chatMessage.findMany({ orderBy: { createdAt: "asc" } }),
+    ]);
+    data.journalEntries = journalEntries;
+    data.chatMessages = chatMessages;
   }
 
   const stamp = new Date().toISOString().slice(0, 10);

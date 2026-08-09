@@ -15,19 +15,24 @@ export default function PracticeForm() {
     const mins = parseInt(minutes, 10);
     if (!what.trim() || !mins || busy) return;
     setBusy(true);
-    await fetch("/api/practice", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        minutes: mins,
-        what: what.trim(),
-        note: note.trim() || undefined,
-      }),
-    });
-    setBusy(false);
-    setWhat("");
-    setNote("");
-    router.refresh();
+    try {
+      await fetch("/api/practice", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          minutes: mins,
+          what: what.trim(),
+          note: note.trim() || undefined,
+        }),
+      });
+      setWhat("");
+      setNote("");
+      router.refresh();
+    } catch {
+      // Offline: keep the entry so she can retry.
+    } finally {
+      setBusy(false);
+    }
   }
 
   return (

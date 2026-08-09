@@ -17,7 +17,9 @@ export const viewport: Viewport = {
   themeColor: "#116466",
   width: "device-width",
   initialScale: 1,
-  maximumScale: 1,
+  // Keep pinch-zoom available (accessibility); resize the layout when the
+  // soft keyboard opens so the chat composer stays visible on Android.
+  interactiveWidget: "resizes-content",
 };
 
 export default function RootLayout({

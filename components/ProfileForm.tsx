@@ -26,15 +26,20 @@ export default function ProfileForm({ initial }: { initial: ProfileValues }) {
     e.preventDefault();
     if (busy) return;
     setBusy(true);
-    const res = await fetch("/api/profile", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(values),
-    });
-    setBusy(false);
-    if (res.ok) {
-      setSaved(true);
-      router.refresh();
+    try {
+      const res = await fetch("/api/profile", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(values),
+      });
+      if (res.ok) {
+        setSaved(true);
+        router.refresh();
+      }
+    } catch {
+      // Offline: edits stay in the form for retry.
+    } finally {
+      setBusy(false);
     }
   }
 

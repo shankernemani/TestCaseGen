@@ -20,11 +20,18 @@ export default async function TodayPage() {
   if (!user) redirect("/login");
   if (user.role === "PARENT") redirect("/parent");
 
+  // Deadlines stay visible through their whole due DAY (Asia/Kolkata), not
+  // just until the stored timestamp passes.
+  const todayStartIST = new Date(`${toDayString(new Date())}T00:00:00+05:30`);
+
   const [profile, allGoals, deadlines, activityDays] = await Promise.all([
     prisma.studentProfile.findUnique({ where: { id: "sarvagna" } }),
-    prisma.goal.findMany({ orderBy: [{ dueDate: "asc" }, { createdAt: "asc" }] }),
+    prisma.goal.findMany({
+      // nulls:last — otherwise SQLite floats undated goals above imminent ones
+      orderBy: [{ dueDate: { sort: "asc", nulls: "last" } }, { createdAt: "asc" }],
+    }),
     prisma.deadline.findMany({
-      where: { date: { gte: new Date(), lte: addDays(new Date(), 45) } },
+      where: { date: { gte: todayStartIST, lte: addDays(new Date(), 45) } },
       orderBy: { date: "asc" },
     }),
     prisma.activityDay.findMany(),

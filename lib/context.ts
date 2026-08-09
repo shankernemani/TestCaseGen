@@ -21,7 +21,9 @@ export async function loadPromptContext(
     prisma.studentProfile.findUnique({ where: { id: "sarvagna" } }),
     prisma.goal.findMany({
       where: { status: "open" },
-      orderBy: [{ dueDate: "asc" }, { createdAt: "asc" }],
+      // nulls:last — SQLite otherwise sorts NULL dueDate first, letting
+      // undated goals crowd an imminent deadline out of the top 6.
+      orderBy: [{ dueDate: { sort: "asc", nulls: "last" } }, { createdAt: "asc" }],
       take: 6,
     }),
     prisma.journalEntry.findMany({
@@ -33,7 +35,11 @@ export async function loadPromptContext(
 
   const grade = profile?.grade ?? 8;
   const birthYear = profile?.birthYear ?? 2012;
-  const age = new Date().getFullYear() - birthYear;
+  // The spec places her inside the Queen's Commonwealth Junior (<14) window
+  // in Aug 2026 with birth year ~2012, i.e. a late-year birthday — so assume
+  // the birthday hasn't happened yet until October.
+  const now = new Date();
+  const age = now.getFullYear() - birthYear - (now.getMonth() < 9 ? 1 : 0);
 
   // Mentor-specific live context (§2.2 focuses): Meera coaches practice
   // consistency, Priya runs the monthly check-in cadence.
@@ -90,16 +96,73 @@ export async function markActivityToday(): Promise<void> {
 
 export const SESSION_IDLE_MINUTES = 30;
 
+// Streaming replies persist from a detached task after the client disconnects
+// (see /api/chat). A close must not summarize while such a persist is still
+// in flight, or the reply lands orphaned outside its own session's summary.
+const inFlightReplies = new Map<string, Promise<void>>();
+
+export function trackReplyPersistence(
+  mentorId: string,
+  task: Promise<unknown>,
+): void {
+  const entry: Promise<void> = task
+    .then(
+      () => undefined,
+      () => undefined,
+    )
+    .finally(() => {
+      if (inFlightReplies.get(mentorId) === entry) {
+        inFlightReplies.delete(mentorId);
+      }
+    });
+  inFlightReplies.set(mentorId, entry);
+}
+
+// One close per mentor at a time within this process: the sweep, the chat
+// route, and the explicit-close endpoint can all fire concurrently (React
+// strict mode even double-fires the sweep), and each close spends seconds in
+// a Haiku call before writing. A force close arriving while a non-force close
+// runs must NOT be coalesced into it (the non-force one may no-op on a fresh
+// session), so it queues behind instead.
+const inFlightCloses = new Map<
+  MentorId,
+  { force: boolean; promise: Promise<boolean> }
+>();
+
 /**
  * §2.3: close any "session" of un-summarized messages whose last message is
  * older than the idle window (or immediately when force=true). Runs Haiku to
  * summarize, merges the rolling memory, and appends commitments as roadmap
  * tasks with status "suggested".
  */
-export async function closeIdleSession(
+export function closeIdleSession(
   mentorId: MentorId,
   force = false,
 ): Promise<boolean> {
+  const existing = inFlightCloses.get(mentorId);
+  if (existing && (existing.force || !force)) return existing.promise;
+  const prior = existing?.promise.catch(() => false) ?? Promise.resolve(false);
+  const promise = prior
+    .then(() => doCloseIdleSession(mentorId, force))
+    .finally(() => {
+      const current = inFlightCloses.get(mentorId);
+      if (current && current.promise === promise) {
+        inFlightCloses.delete(mentorId);
+      }
+    });
+  inFlightCloses.set(mentorId, { force, promise });
+  return promise;
+}
+
+async function doCloseIdleSession(
+  mentorId: MentorId,
+  force: boolean,
+): Promise<boolean> {
+  // Let any in-flight reply land first so the transcript we summarize is
+  // complete (and the reply isn't stranded outside the summarized set).
+  const replyInFlight = inFlightReplies.get(mentorId);
+  if (replyInFlight) await replyInFlight;
+
   const pending = await prisma.chatMessage.findMany({
     where: { mentorId, summarized: false },
     orderBy: { createdAt: "asc" },
@@ -125,33 +188,51 @@ export async function closeIdleSession(
   });
   const stage = stageForGrade(profile?.grade ?? 8);
 
-  await prisma.$transaction([
-    prisma.mentorMemory.upsert({
-      where: { mentorId },
-      create: { mentorId, summary: summary.memory_summary },
-      update: { summary: summary.memory_summary },
-    }),
-    prisma.chatMessage.updateMany({
-      where: { id: { in: pending.map((m) => m.id) } },
-      data: { summarized: true },
-    }),
-    ...summary.commitments.map((title) =>
-      prisma.goal.create({
-        data: { title, status: "suggested", source: mentorId, stage },
-      }),
-    ),
-    // A closed Priya session counts as her (at least partial) monthly
-    // check-in, anchored to when the conversation actually happened.
-    ...(mentorId === "priya"
-      ? [
-          prisma.studentProfile.update({
-            where: { id: "sarvagna" },
-            data: { lastCheckInAt: last.createdAt },
-          }),
-        ]
-      : []),
-  ]);
-  return true;
+  // Guarded write: marking the messages summarized doubles as the race lock.
+  // If ANY of our set was already summarized by a concurrent closer, our
+  // transcript overlaps theirs — abort (rolling back the partial mark) and
+  // let a later sweep handle whatever remains. No duplicate suggested goals,
+  // no double memory merge.
+  const STALE = new Error("STALE_PENDING_SET");
+  try {
+    return await prisma.$transaction(async (tx) => {
+      const { count } = await tx.chatMessage.updateMany({
+        where: { id: { in: pending.map((m) => m.id) }, summarized: false },
+        data: { summarized: true },
+      });
+      if (count !== pending.length) throw STALE;
+
+      await tx.mentorMemory.upsert({
+        where: { mentorId },
+        create: {
+          mentorId,
+          summary: summary.memory_summary,
+          lastSessionSummary: summary.session_summary,
+        },
+        update: {
+          summary: summary.memory_summary,
+          lastSessionSummary: summary.session_summary,
+        },
+      });
+      for (const title of summary.commitments) {
+        await tx.goal.create({
+          data: { title, status: "suggested", source: mentorId, stage },
+        });
+      }
+      // A closed Priya session counts as her (at least partial) monthly
+      // check-in, anchored to when the conversation actually happened.
+      if (mentorId === "priya") {
+        await tx.studentProfile.update({
+          where: { id: "sarvagna" },
+          data: { lastCheckInAt: last.createdAt },
+        });
+      }
+      return true;
+    });
+  } catch (err) {
+    if (err === STALE) return false;
+    throw err;
+  }
 }
 
 /**

@@ -95,6 +95,60 @@ Sa = Grade 8 … Pa = Grade 12, Dha = Applications, Ni = University.
   transcripts are included only in the student's own export, never the
   parent's. Buttons: parent view and `/settings`.
 
+## Production-hardening pass
+
+A multi-agent review (5 dimensions, adversarially verified) drove a fix
+round covering:
+
+- **Memory race** — `closeIdleSession` now serializes per mentor
+  (in-process) and commits through a guarded interactive transaction: the
+  `summarized`-flag update doubles as the lock, so concurrent sweep/chat/
+  close calls can no longer double-summarize a session or duplicate
+  suggested goals.
+- **NULL ordering** — SQLite sorts `NULL` first, so undated goals were
+  crowding imminent deadlines out of the mentors' top-6 context and the
+  dashboard's top-3. All goal queries now order `dueDate` nulls-last.
+- **Streaming durability** — the mentor's reply is consumed and persisted
+  independently of the client connection (locking the phone mid-reply no
+  longer loses the message); hard `max_tokens` cutoffs are marked with "…".
+- **Chat client** — send stays disabled for the whole stream (no concurrent
+  streams corrupting the transcript), failed sends roll back the optimistic
+  bubble and restore the typed text, auto-scroll yields when she scrolls up,
+  and leaving the app fires the §2.3 explicit-close beacon.
+- **Auth** — login gets a 5-failure / 5-minute lockout per profile; a
+  PIN-change form (Profile page and parent view) backed by
+  `POST /api/auth/pin`; re-seeding with `SEED_*_PIN` set now actually
+  rotates the PIN (defaults never overwrite a changed PIN).
+- **Goal integrity** — status transitions are validated server-side
+  (accept only from `suggested`, etc.), `completedAt` is cleared on
+  non-complete transitions, and goal mutation is student-only, so accepting
+  a mentor suggestion is genuinely *her* tap (§2.3).
+- **Privacy** — the parent's backup export now also excludes the
+  Wins & Sparks journal (her words, like her transcripts); the parent view's
+  session summaries show the real ≤120-word session summary (now stored on
+  `MentorMemory.lastSessionSummary`) instead of the rolling memory.
+- **Context windowing** — sessions that outgrow the 30-message window are
+  force-closed into memory (no lost middle); the history window never starts
+  on an assistant turn (API 400); the summary prompt is bounded (last 80
+  messages, 4k chars each) and its Haiku call got headroom (2048 tokens).
+- **Misc** — deadlines stay visible through their whole due day (IST),
+  prompt rule 9 marks injected student content as data-not-instructions,
+  forms recover from network failures instead of sticking `busy`, pinch-zoom
+  restored, keyboard no longer covers the chat composer on Android, age in
+  prompts matches the spec's "about 13", delete-deadline asks first.
+
+A second adversarial pass over the fix diff itself then caught and resolved:
+the login lockout never resetting after expiry (one wrong PIN would re-lock
+forever), session closes racing in-flight reply persistence (closes now wait
+for the reply to land, and abort cleanly on overlapping transcripts), force
+closes being coalesced into in-flight non-force closes, the pagehide close
+beacon (removed — it fired on reloads, killing live sessions, but not on
+mobile backgrounding; the idle sweep covers §2.3), the empty-reply rollback
+duplicating already-persisted user turns, seed PIN rotation requiring an
+explicit `SEED_ROTATE_PINS=1` so stale `.env` vars can't clobber an in-app
+PIN change, goal-conflict errors (409) now surfaced in the UI, and the
+parent backup being labeled as excluding her journal/transcripts.
+
 ## Running locally
 
 ```bash

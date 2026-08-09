@@ -20,18 +20,29 @@ export default function LoginPage() {
     if (!role || busy) return;
     setBusy(true);
     setError("");
-    const res = await fetch("/api/auth/login", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ role, pin }),
-    });
-    setBusy(false);
-    if (res.ok) {
-      router.push(role === "PARENT" ? "/parent" : "/");
-      router.refresh();
-    } else {
-      setError("That PIN doesn't match. Try again.");
-      setPin("");
+    try {
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ role, pin }),
+      });
+      if (res.ok) {
+        router.push(role === "PARENT" ? "/parent" : "/");
+        router.refresh();
+      } else {
+        // Surface server messages (e.g. the lockout countdown) when present.
+        const data = await res.json().catch(() => ({}) as { error?: string });
+        setError(
+          res.status === 429 && data.error
+            ? data.error
+            : "That PIN doesn't match. Try again.",
+        );
+        setPin("");
+      }
+    } catch {
+      setError("Network problem — try again.");
+    } finally {
+      setBusy(false);
     }
   }
 

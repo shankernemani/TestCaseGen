@@ -24,13 +24,25 @@ export default function ChatClient({
 }) {
   const [messages, setMessages] = useState<Msg[]>(initialMessages);
   const [input, setInput] = useState("");
+  // busy guards the whole request; streamStarted controls the indicator.
   const [busy, setBusy] = useState(false);
+  const [streamStarted, setStreamStarted] = useState(false);
   const [error, setError] = useState("");
+  const scrollRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    // Only follow the stream if she hasn't scrolled up to reread something.
+    const el = scrollRef.current;
+    if (!el) return;
+    const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 160;
+    if (nearBottom) bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, busy]);
+
+  // Note: no pagehide/unload close beacon on purpose — pagehide fires on
+  // reloads (which would summarize a LIVE session mid-conversation) but not
+  // on mobile PWA backgrounding, so the idle sweep is strictly better. The
+  // /api/chat/close endpoint remains for a future explicit "end session" UI.
 
   async function send(e?: React.FormEvent) {
     e?.preventDefault();
@@ -40,6 +52,14 @@ export default function ChatClient({
     setError("");
     setMessages((m) => [...m, { role: "user", content: text }]);
     setBusy(true);
+    setStreamStarted(false);
+
+    // On failure: remove the optimistic bubble and give her the text back.
+    const rollback = () => {
+      setMessages((m) => m.slice(0, -1));
+      setInput(text);
+    };
+
     try {
       const res = await fetch("/api/chat", {
         method: "POST",
@@ -49,14 +69,16 @@ export default function ChatClient({
       if (!res.ok) {
         const data = await res.json().catch(() => ({}) as { error?: string });
         setError(data.error ?? "Something went wrong.");
+        rollback();
         return;
       }
-      // Stream the reply into a growing assistant bubble.
       const reader = res.body?.getReader();
       if (!reader) {
         setError("Something went wrong.");
+        rollback();
         return;
       }
+      // Stream the reply into a growing assistant bubble.
       const decoder = new TextDecoder();
       let acc = "";
       let started = false;
@@ -66,7 +88,7 @@ export default function ChatClient({
         acc += decoder.decode(value, { stream: true });
         if (!started) {
           started = true;
-          setBusy(false); // first token arrived; hide the typing indicator
+          setStreamStarted(true);
           setMessages((m) => [...m, { role: "assistant", content: acc }]);
         } else {
           const snapshot = acc;
@@ -76,17 +98,27 @@ export default function ChatClient({
           ]);
         }
       }
-      if (!started) setError("The mentor sent an empty reply — try again.");
+      if (!started) {
+        // The server already persisted her message at this point, so do NOT
+        // roll back (resending would duplicate the turn) — just say so.
+        setError(`${mentorName} didn't reply — send a follow-up message.`);
+      }
     } catch {
-      setError("Network problem — please try again.");
+      // Mid-stream drop: the server persists what the mentor said, so keep
+      // any partial bubble; only roll back if nothing arrived at all.
+      setError("Network problem — the reply may be incomplete.");
     } finally {
       setBusy(false);
+      setStreamStarted(false);
     }
   }
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex-1 space-y-3 overflow-y-auto px-4 pb-4 pt-3">
+      <div
+        ref={scrollRef}
+        className="flex-1 space-y-3 overflow-y-auto px-4 pb-4 pt-3"
+      >
         {messages.length === 0 && (
           <div className={`rounded-2xl rounded-tl-sm ${MENTOR_BG_SOFT[color]} p-3 text-sm leading-relaxed`}>
             {opener}
@@ -109,7 +141,7 @@ export default function ChatClient({
             </div>
           ),
         )}
-        {busy && (
+        {busy && !streamStarted && (
           <div className="flex items-center gap-2 pl-1 text-sm text-ink-faint">
             <span
               className={`h-2 w-2 animate-pulse rounded-full ${MENTOR_BG[color]}`}

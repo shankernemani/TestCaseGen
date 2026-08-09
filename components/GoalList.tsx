@@ -21,17 +21,30 @@ export default function GoalList({
 }) {
   const router = useRouter();
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [error, setError] = useState("");
 
   async function act(id: string, action: string) {
     if (readOnly || busyId) return;
     setBusyId(id);
-    await fetch("/api/goals", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id, action }),
-    });
-    setBusyId(null);
-    router.refresh();
+    setError("");
+    try {
+      const res = await fetch("/api/goals", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, action }),
+      });
+      if (!res.ok) {
+        // e.g. 409 when a stale tab acts on an already-changed goal.
+        const data = await res.json().catch(() => ({}) as { error?: string });
+        setError(data.error ?? "That didn't work — pull to refresh and retry.");
+      }
+      router.refresh();
+    } catch {
+      // Offline tap: nothing changed server-side; buttons must not stay locked.
+      setError("Network problem — try again.");
+    } finally {
+      setBusyId(null);
+    }
   }
 
   if (goals.length === 0) {
@@ -44,6 +57,9 @@ export default function GoalList({
 
   return (
     <ul className="flex flex-col gap-2">
+      {error && (
+        <li className="text-center text-xs text-madder">{error}</li>
+      )}
       {goals.map((g) => {
         const done = g.status === "done";
         const suggested = g.status === "suggested";
@@ -78,17 +94,23 @@ export default function GoalList({
               >
                 {g.title}
               </p>
-              <p className="mt-0.5 text-[11px] text-ink-faint">
-                {suggested && "Suggested by "}
-                {g.source !== "self" && g.source !== "parent"
-                  ? g.source.charAt(0).toUpperCase() + g.source.slice(1)
-                  : g.source === "parent"
-                    ? "Parent"
-                    : suggested
-                      ? "you"
-                      : ""}
-                {g.dueLabel ? ` · due ${g.dueLabel}` : ""}
-              </p>
+              {(() => {
+                const sourceName =
+                  g.source !== "self" && g.source !== "parent"
+                    ? g.source.charAt(0).toUpperCase() + g.source.slice(1)
+                    : g.source === "parent"
+                      ? "Parent"
+                      : "";
+                const parts: string[] = [];
+                if (suggested) parts.push(`Suggested by ${sourceName || "a mentor"}`);
+                else if (sourceName) parts.push(sourceName);
+                if (g.dueLabel) parts.push(`due ${g.dueLabel}`);
+                return parts.length > 0 ? (
+                  <p className="mt-0.5 text-[11px] text-ink-faint">
+                    {parts.join(" · ")}
+                  </p>
+                ) : null;
+              })()}
               {suggested && !readOnly && (
                 <div className="mt-2 flex gap-2">
                   <button

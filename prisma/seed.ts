@@ -13,19 +13,31 @@ function hashPin(pin: string) {
 }
 
 async function main() {
-  const studentPin = process.env.SEED_STUDENT_PIN ?? "1213";
-  const parentPin = process.env.SEED_PARENT_PIN ?? "2026";
+  // SEED_*_PIN only applies on first creation. Rotating an EXISTING user's
+  // PIN from the seed requires the explicit one-shot SEED_ROTATE_PINS=1 —
+  // otherwise a routine re-seed (with stale vars sitting in .env) would
+  // silently overwrite a PIN that was changed in-app.
+  const studentPinEnv = process.env.SEED_STUDENT_PIN;
+  const parentPinEnv = process.env.SEED_PARENT_PIN;
+  const rotate = process.env.SEED_ROTATE_PINS === "1";
+  const studentPin = studentPinEnv ?? "1213";
+  const parentPin = parentPinEnv ?? "2026";
 
   await prisma.user.upsert({
     where: { role: "STUDENT" },
     create: { role: "STUDENT", name: "Sarvagna", ...hashPin(studentPin) },
-    update: {},
+    update: rotate && studentPinEnv ? hashPin(studentPinEnv) : {},
   });
   await prisma.user.upsert({
     where: { role: "PARENT" },
     create: { role: "PARENT", name: "Appa", ...hashPin(parentPin) },
-    update: {},
+    update: rotate && parentPinEnv ? hashPin(parentPinEnv) : {},
   });
+  if (!studentPinEnv || !parentPinEnv) {
+    console.warn(
+      "⚠ Default PINs may be in use — change them in the app (Profile → Change PIN), or set SEED_*_PIN plus SEED_ROTATE_PINS=1 and re-seed.",
+    );
+  }
 
   await prisma.studentProfile.upsert({
     where: { id: "sarvagna" },

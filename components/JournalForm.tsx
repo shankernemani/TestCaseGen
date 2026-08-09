@@ -13,14 +13,19 @@ export default function JournalForm() {
     e.preventDefault();
     if (!content.trim() || busy) return;
     setBusy(true);
-    await fetch("/api/journal", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ kind, content: content.trim() }),
-    });
-    setBusy(false);
-    setContent("");
-    router.refresh();
+    try {
+      await fetch("/api/journal", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ kind, content: content.trim() }),
+      });
+      setContent("");
+      router.refresh();
+    } catch {
+      // Offline: keep her words so she can retry.
+    } finally {
+      setBusy(false);
+    }
   }
 
   return (

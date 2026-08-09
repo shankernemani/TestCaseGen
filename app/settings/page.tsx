@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
 import ProfileForm from "@/components/ProfileForm";
 import LogoutButton from "@/components/LogoutButton";
+import ChangePinForm from "@/components/ChangePinForm";
 import BottomNav from "@/components/BottomNav";
 
 export const dynamic = "force-dynamic";
@@ -39,6 +40,8 @@ export default async function SettingsPage() {
           thread: profile.thread,
         }}
       />
+
+      <ChangePinForm />
 
       <a
         href="/api/export"

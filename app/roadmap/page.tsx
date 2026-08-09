@@ -18,7 +18,11 @@ export default async function RoadmapPage() {
     prisma.studentProfile.findUnique({ where: { id: "sarvagna" } }),
     prisma.goal.findMany({
       where: { status: { in: ["open", "done", "suggested"] } },
-      orderBy: [{ status: "desc" }, { dueDate: "asc" }, { createdAt: "asc" }],
+      orderBy: [
+        { status: "desc" },
+        { dueDate: { sort: "asc", nulls: "last" } },
+        { createdAt: "asc" },
+      ],
     }),
   ]);
   const currentStage = stageForGrade(profile?.grade ?? 8);

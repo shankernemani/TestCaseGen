@@ -15,20 +15,25 @@ export default function AddGoalForm({ defaultStage }: { defaultStage: number }) 
     e.preventDefault();
     if (!title.trim() || busy) return;
     setBusy(true);
-    await fetch("/api/goals", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        title: title.trim(),
-        stage: defaultStage,
-        capstoneType: capstoneType || undefined,
-      }),
-    });
-    setBusy(false);
-    setTitle("");
-    setCapstoneType("");
-    setOpen(false);
-    router.refresh();
+    try {
+      await fetch("/api/goals", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: title.trim(),
+          stage: defaultStage,
+          capstoneType: capstoneType || undefined,
+        }),
+      });
+      setTitle("");
+      setCapstoneType("");
+      setOpen(false);
+      router.refresh();
+    } catch {
+      // Offline: keep the typed goal so she can retry.
+    } finally {
+      setBusy(false);
+    }
   }
 
   if (!open) {

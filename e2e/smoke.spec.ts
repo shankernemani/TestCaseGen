@@ -22,18 +22,20 @@ test("login → mentor chat → send message", async ({ page }) => {
   await box.fill("Hi Anaya! Just saying hello.");
   await page.getByRole("button", { name: "Send" }).click();
 
-  await expect(page.getByText("Hi Anaya! Just saying hello.")).toBeVisible();
-
   if (HAS_KEY) {
-    // A real assistant reply bubble appears (Anaya stops "thinking").
+    // The optimistic bubble stays and a real reply streams in.
+    await expect(page.getByText("Hi Anaya! Just saying hello.")).toBeVisible();
     await expect(page.getByText(/Anaya is thinking…/)).toBeHidden({
       timeout: 60_000,
     });
     const bubbles = page.locator("div.rounded-tl-sm");
     await expect(bubbles.last()).not.toBeEmpty();
   } else {
+    // Graceful error path: the server 502s, the client shows the error and
+    // rolls the message back into the composer for retry.
     await expect(
       page.getByText(/ANTHROPIC_API_KEY|couldn't reply/),
     ).toBeVisible({ timeout: 30_000 });
+    await expect(box).toHaveValue("Hi Anaya! Just saying hello.");
   }
 });

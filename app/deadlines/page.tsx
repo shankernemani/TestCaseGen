@@ -1,4 +1,6 @@
 import { redirect } from "next/navigation";
+import Link from "next/link";
+import { ChevronLeft } from "lucide-react";
 import { format } from "date-fns";
 import { prisma } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
@@ -16,6 +18,14 @@ export default async function DeadlinesPage() {
 
   return (
     <main className="flex flex-col gap-4 px-4 pb-24 pt-6">
+      {user.role === "PARENT" && (
+        <Link
+          href="/parent"
+          className="flex items-center gap-1 text-sm font-medium text-peacock-600"
+        >
+          <ChevronLeft size={16} /> Back to parent view
+        </Link>
+      )}
       <div>
         <h1 className="font-display text-2xl font-bold">Deadlines</h1>
         <p className="text-sm text-ink-soft">

@@ -8,6 +8,7 @@ import {
   buildMentorSystemPrompt,
   closeIdleSession,
   markActivityToday,
+  trackReplyPersistence,
 } from "@/lib/context";
 
 const Body = z.object({
@@ -18,6 +19,11 @@ const Body = z.object({
 // How much recent conversation rides along with each request. Older context
 // lives in the rolling mentor memory (§2.3).
 const HISTORY_LIMIT = 30;
+
+// If a single un-summarized session grows past this, force-close it before
+// replying — otherwise messages beyond HISTORY_LIMIT are in neither the
+// window nor the mentor's memory.
+const FORCE_CLOSE_THRESHOLD = 60;
 
 // Streams the mentor's reply as plain text chunks. Non-OK responses are JSON
 // ({ error }); the client branches on res.ok.
@@ -33,10 +39,16 @@ export async function POST(req: Request) {
   }
   const { mentorId, message } = parsed.data;
 
-  // If she's returning after >30 idle minutes, fold the previous session into
-  // mentor memory before this one starts.
+  // If she's returning after >30 idle minutes — or the current session has
+  // outgrown the history window — fold it into mentor memory first. The
+  // force-close path is deliberately synchronous: the message that crosses
+  // the threshold pays one Haiku round-trip so no context is ever lost
+  // (running it detached would race the reply we're about to stream).
   try {
-    await closeIdleSession(mentorId);
+    const pendingCount = await prisma.chatMessage.count({
+      where: { mentorId, summarized: false },
+    });
+    await closeIdleSession(mentorId, pendingCount > FORCE_CLOSE_THRESHOLD);
   } catch {
     // Memory maintenance must never block the chat itself.
   }
@@ -49,6 +61,11 @@ export async function POST(req: Request) {
     take: HISTORY_LIMIT,
   });
   history.reverse();
+  // The window may cut mid-exchange; the API requires the first turn to be
+  // from the user, so drop any leading assistant messages.
+  while (history.length > 0 && history[0].role === "assistant") {
+    history.shift();
+  }
 
   const turns = [
     ...history.map((m) => ({
@@ -82,10 +99,15 @@ export async function POST(req: Request) {
     data: { mentorId, role: "user", content: message },
   });
 
+  // The model stream is consumed and PERSISTED independently of the client
+  // connection: if she locks her phone mid-reply, the assistant message still
+  // lands in history instead of being lost.
+  let clientGone = false;
   const encoder = new TextEncoder();
   const readable = new ReadableStream<Uint8Array>({
-    async start(controller) {
+    start(controller) {
       const forward = (event: unknown) => {
+        if (clientGone) return;
         const e = event as {
           type?: string;
           delta?: { type?: string; text?: string };
@@ -95,32 +117,57 @@ export async function POST(req: Request) {
           e.delta?.type === "text_delta" &&
           typeof e.delta.text === "string"
         ) {
-          controller.enqueue(encoder.encode(e.delta.text));
+          try {
+            controller.enqueue(encoder.encode(e.delta.text));
+          } catch {
+            clientGone = true; // client disconnected; keep consuming to persist
+          }
         }
       };
-      try {
-        if (!first.done) forward(first.value);
-        for (;;) {
-          const result = await iterator.next();
-          if (result.done) break;
-          forward(result.value);
+      const persistTask = (async () => {
+        try {
+          if (!first.done) forward(first.value);
+          for (;;) {
+            const result = await iterator.next();
+            if (result.done) break;
+            forward(result.value);
+          }
+          const final = await stream.finalMessage();
+          let reply = final.content
+            .filter((block) => block.type === "text")
+            .map((block) => block.text)
+            .join("\n")
+            .trim();
+          // Make a hard cutoff visible instead of persisting it as complete.
+          if (final.stop_reason === "max_tokens") reply += " …";
+          if (reply) {
+            await prisma.chatMessage.create({
+              data: { mentorId, role: "assistant", content: reply },
+            });
+            await markActivityToday();
+          }
+          if (!clientGone) {
+            try {
+              controller.close();
+            } catch {
+              // already closed/cancelled
+            }
+          }
+        } catch (err) {
+          if (!clientGone) {
+            try {
+              controller.error(err);
+            } catch {
+              // already closed/cancelled
+            }
+          }
         }
-        const final = await stream.finalMessage();
-        const reply = final.content
-          .filter((block) => block.type === "text")
-          .map((block) => block.text)
-          .join("\n")
-          .trim();
-        if (reply) {
-          await prisma.chatMessage.create({
-            data: { mentorId, role: "assistant", content: reply },
-          });
-          await markActivityToday();
-        }
-        controller.close();
-      } catch (err) {
-        controller.error(err);
-      }
+      })();
+      // A session close must wait for this reply to land before summarizing.
+      trackReplyPersistence(mentorId, persistTask);
+    },
+    cancel() {
+      clientGone = true;
     },
   });
 

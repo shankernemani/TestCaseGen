@@ -25,33 +25,44 @@ export default function DeadlineManager({ deadlines }: { deadlines: DeadlineView
     e.preventDefault();
     if (!title.trim() || !date || busy) return;
     setBusy(true);
-    await fetch("/api/deadlines", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        title: title.trim(),
-        date,
-        url: url.trim() || undefined,
-      }),
-    });
-    setBusy(false);
-    setTitle("");
-    setDate("");
-    setUrl("");
-    setOpen(false);
-    router.refresh();
+    try {
+      await fetch("/api/deadlines", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: title.trim(),
+          date,
+          url: url.trim() || undefined,
+        }),
+      });
+      setTitle("");
+      setDate("");
+      setUrl("");
+      setOpen(false);
+      router.refresh();
+    } catch {
+      // Offline: keep the form contents for retry.
+    } finally {
+      setBusy(false);
+    }
   }
 
-  async function remove(id: string) {
+  async function remove(id: string, title: string) {
     if (busy) return;
+    if (!window.confirm(`Delete "${title}"?`)) return;
     setBusy(true);
-    await fetch("/api/deadlines", {
-      method: "DELETE",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id }),
-    });
-    setBusy(false);
-    router.refresh();
+    try {
+      await fetch("/api/deadlines", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id }),
+      });
+      router.refresh();
+    } catch {
+      // Offline: nothing deleted.
+    } finally {
+      setBusy(false);
+    }
   }
 
   return (
@@ -129,9 +140,9 @@ export default function DeadlineManager({ deadlines }: { deadlines: DeadlineView
             </div>
             <button
               aria-label={`Delete ${d.title}`}
-              onClick={() => remove(d.id)}
+              onClick={() => remove(d.id, d.title)}
               disabled={busy}
-              className="p-1 text-ink-faint active:text-madder"
+              className="-m-1 p-3 text-ink-faint active:text-madder"
             >
               <Trash2 size={16} />
             </button>

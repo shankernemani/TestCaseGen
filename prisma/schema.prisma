@@ -70,11 +70,13 @@ model ChatMessage {
   @@index([mentorId, createdAt])
 }
 
-// Rolling ≤400-word memory per mentor (§2.3).
+// Rolling ≤400-word memory per mentor (§2.3), plus the latest ≤120-word
+// session summary (what the parent view shows).
 model MentorMemory {
-  mentorId  String   @id
-  summary   String
-  updatedAt DateTime @updatedAt
+  mentorId           String   @id
+  summary            String
+  lastSessionSummary String?
+  updatedAt          DateTime @updatedAt
 }
 
 // Roadmap goals. status: "suggested" (mentor-proposed, needs her tap to accept),

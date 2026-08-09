@@ -13,6 +13,7 @@ import CapstoneMeter from "@/components/CapstoneMeter";
 import GoalList from "@/components/GoalList";
 import LogoutButton from "@/components/LogoutButton";
 import MemorySweeper from "@/components/MemorySweeper";
+import ChangePinForm from "@/components/ChangePinForm";
 
 export const dynamic = "force-dynamic";
 
@@ -23,7 +24,9 @@ export default async function ParentPage() {
 
   const [profile, goals, activityDays, memories] = await Promise.all([
     prisma.studentProfile.findUnique({ where: { id: "sarvagna" } }),
-    prisma.goal.findMany({ orderBy: [{ dueDate: "asc" }, { createdAt: "asc" }] }),
+    prisma.goal.findMany({
+      orderBy: [{ dueDate: { sort: "asc", nulls: "last" } }, { createdAt: "asc" }],
+    }),
     prisma.activityDay.findMany(),
     prisma.mentorMemory.findMany(),
   ]);
@@ -35,7 +38,12 @@ export default async function ParentPage() {
   const streak = currentStreak(days, toDayString(new Date()));
   const best = longestStreak(days);
   const openGoals = goals.filter((g) => g.status === "open");
-  const doneGoals = goals.filter((g) => g.status === "done").slice(-5).reverse();
+  const doneGoals = goals
+    .filter((g) => g.status === "done")
+    .sort(
+      (a, b) => (b.completedAt?.getTime() ?? 0) - (a.completedAt?.getTime() ?? 0),
+    )
+    .slice(0, 5);
 
   return (
     <main className="flex flex-col gap-4 px-4 pb-10 pt-6">
@@ -97,6 +105,11 @@ export default async function ParentPage() {
           <Download size={18} /> Backup data
         </a>
       </div>
+      <p className="-mt-2 px-1 text-[11px] leading-snug text-ink-faint">
+        This backup excludes Sarvagna&apos;s journal and chat transcripts (her
+        private spaces). For a complete backup, she can export from her
+        Profile page.
+      </p>
 
       <section>
         <h2 className="mb-2 px-1 text-sm font-bold text-ink-soft">
@@ -145,7 +158,9 @@ export default async function ParentPage() {
                   {mentor.name} · {mentor.role}
                 </p>
                 <p className="mt-1 text-sm leading-relaxed text-ink-soft">
-                  {memory?.summary ?? "No sessions yet."}
+                  {memory?.lastSessionSummary ??
+                    memory?.summary ??
+                    "No sessions yet."}
                 </p>
                 {memory && (
                   <p className="mt-1 text-[11px] text-ink-faint">
@@ -157,6 +172,8 @@ export default async function ParentPage() {
           })}
         </div>
       </section>
+
+      <ChangePinForm />
     </main>
   );
 }
