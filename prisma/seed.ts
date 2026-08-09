@@ -69,7 +69,7 @@ async function main() {
         },
         {
           title:
-            "Draft an entry for the Queen's Commonwealth Essay Competition (Junior category — you're inside the <14 window now)",
+            "Draft a piece for the Queen's Commonwealth Writing Competition 2027 (18-and-under, any written form up to 1,000 words)",
           status: "open",
           stage: 1,
           source: "arjun",
@@ -126,11 +126,12 @@ async function main() {
       data: [
         {
           title:
-            "Queen's Commonwealth Essay — Junior (<14) submission window closes. She's inside the junior window NOW.",
-          date: new Date("2026-09-15"),
-          url: "https://www.royalcwsociety.org/essay-competition",
-          mentorId: "arjun",
-          notes: verify,
+            "Queen's Commonwealth Writing Competition 2027 — expected deadline (rebranded from the Essay Competition; single 18-and-under category, ≤1,000 words, any written form)",
+          date: new Date("2027-04-30"),
+          url: "https://www.royalcwsociety.org/writing-competition",
+          mentorId: "dev",
+          notes:
+            "2026 cycle closed 30 Apr 2026. 2027 cycle expected to open ~Feb — verify theme and dates when announced.",
         },
         {
           title:

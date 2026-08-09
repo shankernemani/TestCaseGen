@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Trash2, ExternalLink } from "lucide-react";
+import { Plus, Trash2, ExternalLink, Globe, LoaderCircle } from "lucide-react";
 
 export interface DeadlineView {
   id: string;
@@ -20,6 +20,28 @@ export default function DeadlineManager({ deadlines }: { deadlines: DeadlineView
   const [date, setDate] = useState("");
   const [url, setUrl] = useState("");
   const [busy, setBusy] = useState(false);
+  const [checking, setChecking] = useState(false);
+  const [checkResult, setCheckResult] = useState("");
+
+  async function refreshFromWeb() {
+    if (checking) return;
+    setChecking(true);
+    setCheckResult("");
+    try {
+      const res = await fetch("/api/deadlines/refresh", { method: "POST" });
+      const data = await res.json().catch(() => ({}) as { summary?: string; error?: string });
+      if (res.ok) {
+        setCheckResult(data.summary ?? "Done.");
+        router.refresh();
+      } else {
+        setCheckResult(data.error ?? "The web check failed — try again.");
+      }
+    } catch {
+      setCheckResult("Network problem — try again.");
+    } finally {
+      setChecking(false);
+    }
+  }
 
   async function add(e: React.FormEvent) {
     e.preventDefault();
@@ -67,10 +89,30 @@ export default function DeadlineManager({ deadlines }: { deadlines: DeadlineView
 
   return (
     <div className="flex flex-col gap-3">
+      <button
+        onClick={refreshFromWeb}
+        disabled={checking}
+        className="flex items-center justify-center gap-2 rounded-card border border-peacock-200 bg-peacock-50 py-3 text-sm font-semibold text-peacock-700 transition-colors hover:bg-peacock-100 disabled:opacity-60"
+      >
+        {checking ? (
+          <>
+            <LoaderCircle size={16} className="animate-spin" />
+            Checking official sites… this takes a minute
+          </>
+        ) : (
+          <>
+            <Globe size={16} /> Check the web for updates
+          </>
+        )}
+      </button>
+      {checkResult && (
+        <p className="text-center text-xs text-ink-soft">{checkResult}</p>
+      )}
+
       {!open ? (
         <button
           onClick={() => setOpen(true)}
-          className="flex items-center justify-center gap-2 rounded-card border-2 border-dashed border-silk-300 py-3 text-sm font-semibold text-ink-soft"
+          className="flex items-center justify-center gap-2 rounded-card border-2 border-dashed border-silk-300 py-3 text-sm font-semibold text-ink-soft transition-colors hover:bg-silk-100"
         >
           <Plus size={16} /> Add a deadline
         </button>

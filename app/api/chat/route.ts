@@ -86,9 +86,11 @@ export async function POST(req: Request) {
     iterator = stream[Symbol.asyncIterator]();
     first = await iterator.next();
   } catch (err) {
-    const detail =
-      err instanceof Error && err.message.includes("ANTHROPIC_API_KEY")
-        ? err.message
+    const message = err instanceof Error ? err.message : "";
+    const detail = message.includes("credit balance")
+      ? "Anthropic API credits are exhausted — a parent needs to top up at console.anthropic.com."
+      : message.includes("ANTHROPIC_API_KEY")
+        ? message
         : "The mentor couldn't reply right now. Please try again in a moment.";
     return NextResponse.json({ error: detail }, { status: 502 });
   }
