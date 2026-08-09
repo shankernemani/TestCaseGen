@@ -1,0 +1,24 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    -webkit-tap-highlight-color: transparent;
+  }
+  body {
+    @apply bg-silk-100 text-ink font-body antialiased;
+  }
+}
+
+@layer components {
+  .card {
+    @apply bg-silk-50 rounded-card shadow-card border border-silk-200 p-4;
+  }
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2 rounded-full bg-peacock px-5 py-2.5 text-sm font-semibold text-silk-50 active:bg-peacock-600 disabled:opacity-50;
+  }
+  .input {
+    @apply w-full rounded-xl border border-silk-300 bg-white px-4 py-3 text-base outline-none focus:border-peacock;
+  }
+}

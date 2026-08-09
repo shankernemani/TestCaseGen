@@ -1,0 +1,103 @@
+// Pathfinder v2 — single-family SQLite schema.
+// §5 of the spec was lost in transmission; this schema is reconstructed from
+// every entity the surviving sections reference (see docs/BUILD_NOTES.md).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// Two local profiles: Sarvagna (STUDENT) and her father (PARENT). PIN auth only.
+model User {
+  id           String        @id @default(cuid())
+  role         String        @unique // "STUDENT" | "PARENT"
+  name         String
+  pinHash      String
+  pinSalt      String
+  authSessions AuthSession[]
+}
+
+model AuthSession {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  expiresAt DateTime
+}
+
+// Single-row student profile injected into every mentor prompt (§2.1).
+model StudentProfile {
+  id        String   @id @default("sarvagna")
+  grade     Int      @default(8)
+  birthYear Int      @default(2012)
+  interests String
+  strengths String
+  notes     String
+  thread    String // the one-line narrative spine
+  updatedAt DateTime @updatedAt
+}
+
+// One row per mentor chat message. mentorId ∈ priya|meera|arjun|dev|anaya.
+model ChatMessage {
+  id        String   @id @default(cuid())
+  mentorId  String
+  role      String // "user" | "assistant"
+  content   String
+  createdAt DateTime @default(now())
+  // set when a background summarization pass has consumed this message
+  summarized Boolean @default(false)
+
+  @@index([mentorId, createdAt])
+}
+
+// Rolling ≤400-word memory per mentor (§2.3).
+model MentorMemory {
+  mentorId  String   @id
+  summary   String
+  updatedAt DateTime @updatedAt
+}
+
+// Roadmap goals. status: "suggested" (mentor-proposed, needs her tap to accept),
+// "open", "done", "dropped". stage 1–7 maps to the Arohanam swaras (Grade 8 → University).
+model Goal {
+  id          String    @id @default(cuid())
+  title       String
+  status      String    @default("open")
+  stage       Int       @default(1)
+  source      String    @default("self") // "self" | "parent" | mentor id
+  capstoneType String? // "institutional" | "innovative" | "independent"
+  dueDate     DateTime?
+  createdAt   DateTime  @default(now())
+  completedAt DateTime?
+
+  @@index([status, stage])
+}
+
+// "Wins & Sparks" journal (§ Dev persona: essay-seed mining corpus).
+model JournalEntry {
+  id        String   @id @default(cuid())
+  kind      String   @default("win") // "win" | "spark"
+  content   String
+  createdAt DateTime @default(now())
+}
+
+// Competition / program deadlines surfaced on the dashboard within 45 days (§3.1).
+model Deadline {
+  id       String   @id @default(cuid())
+  title    String
+  date     DateTime
+  url      String?
+  mentorId String? // owning mentor, for color coding
+  notes    String?
+}
+
+// Daily activity marker for streaks (any goal completion, journal entry, or chat).
+model ActivityDay {
+  day    String @id // "YYYY-MM-DD" in Asia/Kolkata
+  userId String @default("student")
+}
