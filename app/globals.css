@@ -24,4 +24,8 @@
   .font-display {
     letter-spacing: -0.02em;
   }
+  /* Section label system: one consistent voice for every heading-above-a-list. */
+  .eyebrow {
+    @apply text-[11px] font-semibold uppercase tracking-[0.08em] text-ink-faint;
+  }
 }

@@ -1,6 +1,24 @@
-// The signature Arohanam tracker: Grade 8 → University as seven ascending
-// swaras, current stage highlighted, progress = goals done in current stage.
+// The signature element: Grade 8 → University as the seven ascending swaras,
+// drawn as one rising path. Climbed ground is gold, the current swara is
+// peacock with a halo, the road ahead stays quiet. Token hexes mirror
+// tailwind.config.ts (SVG needs literals).
 import { STAGES } from "@/lib/stages";
+
+const C = {
+  gold: "#BF8A00",
+  goldSoft: "#E3C566",
+  peacock: "#116466",
+  peacockHalo: "rgba(17, 100, 102, 0.14)",
+  track: "#E8E8ED",
+  futureStroke: "#D2D2D7",
+  ink: "#1D1D1F",
+  faint: "#86868B",
+  white: "#FFFFFF",
+};
+
+const W = 700;
+const x = (i: number) => 52 + i * 99.3;
+const y = (i: number) => 84 - i * 10.5;
 
 export default function ArohanamTracker({
   currentStage,
@@ -11,58 +29,96 @@ export default function ArohanamTracker({
   done: number;
   total: number;
 }) {
+  const current = currentStage - 1; // 0-indexed
+  const allPoints = STAGES.map((_, i) => `${x(i)},${y(i)}`).join(" ");
+  const climbedPoints = STAGES.slice(0, current + 1)
+    .map((_, i) => `${x(i)},${y(i)}`)
+    .join(" ");
+
   return (
     <div className="card">
-      <div className="mb-3 flex items-baseline justify-between">
+      <div className="flex items-baseline justify-between">
         <h2 className="font-display text-lg font-bold text-peacock-700">
           Arohanam
         </h2>
-        <span className="text-xs text-ink-faint">
-          {STAGES[currentStage - 1].label} · {done}/{total} goals done
-        </span>
+        <p className="text-xs text-ink-faint">
+          {total > 0 ? (
+            <>
+              <span className="font-semibold text-ink">{done}</span> of {total}{" "}
+              goals this stage
+            </>
+          ) : (
+            STAGES[current].label
+          )}
+        </p>
       </div>
-      <div className="flex items-end justify-between px-1">
-        {STAGES.map((s) => {
-          const isPast = s.n < currentStage;
-          const isCurrent = s.n === currentStage;
-          // Ascending scale: each swara sits a little higher.
-          const lift = (s.n - 1) * 8;
+
+      <svg
+        viewBox={`0 0 ${W} 124`}
+        className="mt-2 h-auto w-full"
+        role="img"
+        aria-label={`Journey tracker: currently at ${STAGES[current].label}, stage ${currentStage} of 7`}
+      >
+        {/* the road, then the climbed portion in gold */}
+        <polyline
+          points={allPoints}
+          fill="none"
+          stroke={C.track}
+          strokeWidth={2}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+        {current > 0 && (
+          <polyline
+            points={climbedPoints}
+            fill="none"
+            stroke={C.goldSoft}
+            strokeWidth={2}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        )}
+
+        {STAGES.map((s, i) => {
+          const isPast = i < current;
+          const isCurrent = i === current;
           return (
-            <div
-              key={s.n}
-              className="flex flex-1 flex-col items-center gap-1"
-              style={{ marginBottom: lift }}
-            >
-              <span
-                className={`flex h-9 w-9 items-center justify-center rounded-full font-display text-sm font-bold transition ${
-                  isCurrent
-                    ? "bg-peacock text-silk-50 ring-4 ring-gold-soft"
-                    : isPast
-                      ? "bg-gold text-silk-50"
-                      : "bg-silk-200 text-ink-faint"
-                }`}
+            <g key={s.n}>
+              {isCurrent && (
+                <circle cx={x(i)} cy={y(i)} r={21} fill={C.peacockHalo} />
+              )}
+              <circle
+                cx={x(i)}
+                cy={y(i)}
+                r={14}
+                fill={isCurrent ? C.peacock : isPast ? C.gold : C.white}
+                stroke={isPast ? C.gold : isCurrent ? C.peacock : C.futureStroke}
+                strokeWidth={1.5}
+              />
+              <text
+                x={x(i)}
+                y={y(i) + 4}
+                textAnchor="middle"
+                fontSize={11}
+                fontWeight={700}
+                fill={isPast || isCurrent ? C.white : C.faint}
               >
                 {s.swara}
-              </span>
-              <span
-                className={`text-[9px] leading-tight ${
-                  isCurrent ? "font-semibold text-peacock-700" : "text-ink-faint"
-                }`}
+              </text>
+              <text
+                x={x(i)}
+                y={y(i) + 32}
+                textAnchor="middle"
+                fontSize={9.5}
+                fontWeight={isCurrent ? 700 : 400}
+                fill={isCurrent ? C.ink : C.faint}
               >
                 {s.label}
-              </span>
-            </div>
+              </text>
+            </g>
           );
         })}
-      </div>
-      {total > 0 && (
-        <div className="mt-4 h-1.5 overflow-hidden rounded-full bg-silk-200">
-          <div
-            className="h-full rounded-full bg-gold transition-all"
-            style={{ width: `${Math.round((done / total) * 100)}%` }}
-          />
-        </div>
-      )}
+      </svg>
     </div>
   );
 }

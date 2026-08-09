@@ -68,22 +68,25 @@ export default async function ParentPage() {
         </p>
       </div>
 
-      <div className="flex gap-3">
-        <div className="card flex-1 text-center">
-          <p className="flex items-center justify-center gap-1 font-display text-2xl font-bold text-marigold-600">
-            <Flame size={20} /> {streak}
+      <div className="grid grid-cols-3 gap-3">
+        <div className="card">
+          <p className="eyebrow">Streak</p>
+          <p className="mt-1.5 flex items-baseline text-[26px] font-semibold leading-none text-ink">
+            {streak}
+            {streak > 0 && (
+              <Flame size={15} className="ml-auto self-center text-marigold" />
+            )}
           </p>
-          <p className="text-xs text-ink-faint">current streak</p>
         </div>
-        <div className="card flex-1 text-center">
-          <p className="font-display text-2xl font-bold text-peacock-600">{best}</p>
-          <p className="text-xs text-ink-faint">longest streak</p>
+        <div className="card">
+          <p className="eyebrow">Best streak</p>
+          <p className="mt-1.5 text-[26px] font-semibold leading-none text-ink">{best}</p>
         </div>
-        <div className="card flex-1 text-center">
-          <p className="font-display text-2xl font-bold text-plum-600">
+        <div className="card">
+          <p className="eyebrow">Goals done</p>
+          <p className="mt-1.5 text-[26px] font-semibold leading-none text-ink">
             {goals.filter((g) => g.status === "done").length}
           </p>
-          <p className="text-xs text-ink-faint">goals done</p>
         </div>
       </div>
 
@@ -112,7 +115,7 @@ export default async function ParentPage() {
       </p>
 
       <section>
-        <h2 className="mb-2 px-1 text-sm font-bold text-ink-soft">
+        <h2 className="eyebrow mb-2 px-1">
           Open goals ({openGoals.length})
         </h2>
         <GoalList
@@ -129,7 +132,7 @@ export default async function ParentPage() {
 
       {doneGoals.length > 0 && (
         <section>
-          <h2 className="mb-2 px-1 text-sm font-bold text-ink-soft">
+          <h2 className="eyebrow mb-2 px-1">
             Recently completed
           </h2>
           <GoalList
@@ -145,7 +148,7 @@ export default async function ParentPage() {
       )}
 
       <section>
-        <h2 className="mb-2 px-1 text-sm font-bold text-ink-soft">
+        <h2 className="eyebrow mb-2 px-1">
           Mentor session summaries
         </h2>
         <div className="grid gap-2 sm:grid-cols-2">

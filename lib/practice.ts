@@ -21,6 +21,21 @@ export function lastSevenDays(
   return entries.filter((e) => e.day >= start && e.day <= today);
 }
 
+/** Minutes practiced per day for the 7 days ending at `today` (oldest first).
+ * Feeds the dashboard's practice stat-tile sparkline. */
+export function sevenDayBars(
+  entries: PracticeEntry[],
+  today: string,
+): number[] {
+  const days: string[] = [];
+  for (let i = 6; i >= 0; i--) days.push(shiftDay(today, -i));
+  return days.map((day) =>
+    entries
+      .filter((e) => e.day === day)
+      .reduce((sum, e) => sum + e.minutes, 0),
+  );
+}
+
 /**
  * One-line summary for Meera's prompt context, e.g.
  * "Practiced 4 of the last 7 days, 135 minutes total. Most recent: 30 min — varnam (2026-08-08)."

@@ -1,17 +1,24 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { format, addDays } from "date-fns";
-import { Flame, CalendarClock, Settings, HeartHandshake } from "lucide-react";
+import { CalendarClock, Settings, HeartHandshake } from "lucide-react";
 import { prisma } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
 import { capstoneMix, stageForGrade, stageProgress } from "@/lib/stages";
-import { currentStreak, toDayString } from "@/lib/streak";
+import {
+  currentStreak,
+  lastSevenActive,
+  longestStreak,
+  toDayString,
+} from "@/lib/streak";
 import { isCheckInDue } from "@/lib/checkin";
+import { lastSevenDays, sevenDayBars } from "@/lib/practice";
 import ArohanamTracker from "@/components/ArohanamTracker";
 import CapstoneMeter from "@/components/CapstoneMeter";
 import GoalList from "@/components/GoalList";
 import BottomNav from "@/components/BottomNav";
 import MemorySweeper from "@/components/MemorySweeper";
+import { PracticeTile, StreakTile } from "@/components/StatTiles";
 
 export const dynamic = "force-dynamic";
 
@@ -22,28 +29,38 @@ export default async function TodayPage() {
 
   // Deadlines stay visible through their whole due DAY (Asia/Kolkata), not
   // just until the stored timestamp passes.
-  const todayStartIST = new Date(`${toDayString(new Date())}T00:00:00+05:30`);
+  const today = toDayString(new Date());
+  const todayStartIST = new Date(`${today}T00:00:00+05:30`);
 
-  const [profile, allGoals, deadlines, activityDays] = await Promise.all([
-    prisma.studentProfile.findUnique({ where: { id: "sarvagna" } }),
-    prisma.goal.findMany({
-      // nulls:last — otherwise SQLite floats undated goals above imminent ones
-      orderBy: [{ dueDate: { sort: "asc", nulls: "last" } }, { createdAt: "asc" }],
-    }),
-    prisma.deadline.findMany({
-      where: { date: { gte: todayStartIST, lte: addDays(new Date(), 45) } },
-      orderBy: { date: "asc" },
-    }),
-    prisma.activityDay.findMany(),
-  ]);
+  const [profile, allGoals, deadlines, activityDays, practiceLogs] =
+    await Promise.all([
+      prisma.studentProfile.findUnique({ where: { id: "sarvagna" } }),
+      prisma.goal.findMany({
+        // nulls:last — otherwise SQLite floats undated goals above imminent ones
+        orderBy: [
+          { dueDate: { sort: "asc", nulls: "last" } },
+          { createdAt: "asc" },
+        ],
+      }),
+      prisma.deadline.findMany({
+        where: { date: { gte: todayStartIST, lte: addDays(new Date(), 45) } },
+        orderBy: { date: "asc" },
+      }),
+      prisma.activityDay.findMany(),
+      prisma.practiceLog.findMany({ orderBy: { day: "desc" }, take: 100 }),
+    ]);
 
   const stage = stageForGrade(profile?.grade ?? 8);
   const progress = stageProgress(allGoals, stage);
   const mix = capstoneMix(allGoals);
-  const streak = currentStreak(
-    activityDays.map((d) => d.day),
-    toDayString(new Date()),
-  );
+  const days = activityDays.map((d) => d.day);
+  const streak = currentStreak(days, today);
+  const best = longestStreak(days);
+
+  const week = lastSevenDays(practiceLogs, today);
+  const weekMinutes = week.reduce((sum, l) => sum + l.minutes, 0);
+  const weekDays = new Set(week.map((l) => l.day)).size;
+  const bars = sevenDayBars(practiceLogs, today);
 
   const suggested = allGoals.filter((g) => g.status === "suggested");
   const topOpen = allGoals.filter((g) => g.status === "open").slice(0, 3);
@@ -60,33 +77,24 @@ export default async function TodayPage() {
 
   return (
     <main className="mx-auto max-w-6xl px-4 pb-24 pt-6 md:px-8 md:pb-12 md:pt-10">
-      <header className="flex items-center justify-between">
+      <header className="flex items-start justify-between">
         <div>
-          <h1 className="font-display text-2xl font-bold md:text-3xl">
+          <p className="eyebrow">{format(new Date(), "EEEE, d MMMM")}</p>
+          <h1 className="mt-1 font-display text-2xl font-bold md:text-[28px]">
             {greeting}, Sarvagna
           </h1>
-          <p className="mt-0.5 text-sm text-ink-soft">
-            {format(new Date(), "EEEE, d MMMM")}
-          </p>
         </div>
-        <div className="flex items-center gap-2">
-          {streak > 0 && (
-            <div className="flex items-center gap-1 rounded-full bg-marigold-50 px-3 py-1.5 text-sm font-semibold text-marigold-700">
-              <Flame size={16} /> {streak}
-            </div>
-          )}
-          <Link
-            href="/settings"
-            aria-label="Profile & settings"
-            className="rounded-full border border-silk-300 p-2 text-ink-soft transition-colors hover:bg-silk-100 md:hidden"
-          >
-            <Settings size={18} />
-          </Link>
-        </div>
+        <Link
+          href="/settings"
+          aria-label="Profile & settings"
+          className="rounded-full border border-silk-300 p-2 text-ink-soft transition-colors hover:bg-silk-100 md:hidden"
+        >
+          <Settings size={18} />
+        </Link>
       </header>
       <MemorySweeper />
 
-      <div className="mt-5 grid gap-4 lg:grid-cols-3 lg:gap-6">
+      <div className="mt-6 grid gap-4 lg:grid-cols-3 lg:gap-5">
         {/* Primary column: the journey and the work */}
         <div className="flex flex-col gap-4 lg:col-span-2">
           <ArohanamTracker
@@ -110,9 +118,7 @@ export default async function TodayPage() {
 
           {suggested.length > 0 && (
             <section>
-              <h2 className="mb-2 px-1 text-sm font-bold text-ink-soft">
-                Your mentors suggested
-              </h2>
+              <h2 className="eyebrow mb-2 px-1">Your mentors suggested</h2>
               <GoalList
                 goals={suggested.map((g) => ({
                   id: g.id,
@@ -126,7 +132,7 @@ export default async function TodayPage() {
 
           <section>
             <div className="mb-2 flex items-baseline justify-between px-1">
-              <h2 className="text-sm font-bold text-ink-soft">This week</h2>
+              <h2 className="eyebrow">This week</h2>
               <Link
                 href="/roadmap"
                 className="text-xs font-medium text-peacock-600 hover:text-peacock-700"
@@ -146,33 +152,53 @@ export default async function TodayPage() {
           </section>
         </div>
 
-        {/* Secondary column: dates and balance */}
+        {/* Secondary column: numbers, dates, balance */}
         <div className="flex flex-col gap-4">
-          <section className="card border-marigold-200 bg-marigold-50">
-            <div className="mb-2 flex items-baseline justify-between">
-              <h2 className="flex items-center gap-2 text-sm font-bold text-marigold-700">
-                <CalendarClock size={16} /> Coming up
+          <div className="grid grid-cols-2 gap-4">
+            <PracticeTile
+              weekMinutes={weekMinutes}
+              weekDays={weekDays}
+              bars={bars}
+            />
+            <StreakTile
+              streak={streak}
+              best={best}
+              activeDays={lastSevenActive(days, today)}
+            />
+          </div>
+
+          <section className="card">
+            <div className="flex items-baseline justify-between">
+              <h2 className="eyebrow flex items-center gap-1.5">
+                <CalendarClock size={13} className="text-marigold" /> Coming up
               </h2>
               <Link
                 href="/deadlines"
-                className="text-xs font-medium text-marigold-700"
+                className="text-xs font-medium text-peacock-600 hover:text-peacock-700"
               >
                 Manage →
               </Link>
             </div>
             {deadlines.length > 0 ? (
-              <ul className="space-y-1.5">
+              <ul className="mt-3 space-y-3">
                 {deadlines.map((d) => (
-                  <li key={d.id} className="text-sm leading-snug">
-                    <span className="font-semibold">
-                      {format(d.date, "d MMM")}
-                    </span>{" "}
-                    — {d.title}
+                  <li key={d.id} className="flex items-start gap-3">
+                    <span className="flex h-10 w-10 shrink-0 flex-col items-center justify-center rounded-lg bg-marigold-50">
+                      <span className="text-[9px] font-bold uppercase leading-none text-marigold-700">
+                        {format(d.date, "MMM")}
+                      </span>
+                      <span className="text-sm font-bold leading-tight text-marigold-700 tabular-nums">
+                        {format(d.date, "d")}
+                      </span>
+                    </span>
+                    <p className="min-w-0 pt-0.5 text-[13px] leading-snug text-ink">
+                      {d.title}
+                    </p>
                   </li>
                 ))}
               </ul>
             ) : (
-              <p className="text-sm text-marigold-700/70">
+              <p className="mt-3 text-sm text-ink-faint">
                 Nothing in the next 45 days.
               </p>
             )}

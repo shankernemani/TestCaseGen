@@ -1,11 +1,26 @@
-// Capstone-mix meter (§3.1): three dots — Institutional / Innovative /
-// Independent — showing how many active goals feed each capstone type.
+// Capstone-mix (§3.1): how many active goals feed each of the three capstone
+// types. Identity rides the colored mark; text stays in text tokens.
 import type { CapstoneType } from "@/lib/stages";
 
-const LABELS: { key: CapstoneType; label: string; dot: string }[] = [
-  { key: "institutional", label: "Institutional", dot: "bg-peacock" },
-  { key: "innovative", label: "Innovative", dot: "bg-marigold" },
-  { key: "independent", label: "Independent", dot: "bg-plum" },
+const ROWS: { key: CapstoneType; label: string; hint: string; dot: string }[] = [
+  {
+    key: "institutional",
+    label: "Institutional",
+    hint: "judged & structured",
+    dot: "bg-peacock",
+  },
+  {
+    key: "innovative",
+    label: "Innovative",
+    hint: "public reach",
+    dot: "bg-marigold",
+  },
+  {
+    key: "independent",
+    label: "Independent",
+    hint: "solo depth",
+    dot: "bg-plum",
+  },
 ];
 
 export default function CapstoneMeter({
@@ -14,20 +29,27 @@ export default function CapstoneMeter({
   mix: Record<CapstoneType, number>;
 }) {
   return (
-    <div className="card flex items-center justify-between">
-      <span className="text-sm font-semibold text-ink-soft">Capstone mix</span>
-      <div className="flex gap-4">
-        {LABELS.map(({ key, label, dot }) => (
-          <div key={key} className="flex items-center gap-1.5" title={label}>
+    <div className="card">
+      <p className="eyebrow">Capstone mix</p>
+      <ul className="mt-3 space-y-2.5">
+        {ROWS.map(({ key, label, hint, dot }) => (
+          <li key={key} className="flex items-center gap-2.5">
             <span
-              className={`h-3 w-3 rounded-full ${mix[key] > 0 ? dot : "bg-silk-300"}`}
+              className={`h-2.5 w-2.5 shrink-0 rounded-full ${
+                mix[key] > 0 ? dot : "bg-silk-300"
+              }`}
             />
-            <span className="text-xs text-ink-faint">
-              {label.slice(0, 5)} {mix[key]}
+            <span className="text-[13px] font-medium text-ink">{label}</span>
+            <span className="text-xs text-ink-faint">{hint}</span>
+            <span className="ml-auto text-sm font-semibold tabular-nums text-ink">
+              {mix[key]}
             </span>
-          </div>
+          </li>
         ))}
-      </div>
+      </ul>
+      <p className="mt-3 text-[11px] leading-snug text-ink-faint">
+        A strong profile eventually shows all three.
+      </p>
     </div>
   );
 }

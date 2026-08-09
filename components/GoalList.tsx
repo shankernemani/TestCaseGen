@@ -56,35 +56,33 @@ export default function GoalList({
   }
 
   return (
-    <ul className="flex flex-col gap-2">
+    <div className="card overflow-hidden p-0">
       {error && (
-        <li className="text-center text-xs text-madder">{error}</li>
+        <p className="border-b border-silk-200 bg-madder-50 px-4 py-2 text-center text-xs text-madder-700">
+          {error}
+        </p>
       )}
+      <ul className="divide-y divide-silk-200/70">
       {goals.map((g) => {
         const done = g.status === "done";
         const suggested = g.status === "suggested";
         return (
-          <li
-            key={g.id}
-            className={`card flex items-start gap-3 py-3 ${
-              suggested ? "border-dashed border-gold-soft bg-silk-50" : ""
-            }`}
-          >
+          <li key={g.id} className="flex items-start gap-3 px-4 py-3">
             {!suggested ? (
               <button
                 aria-label={done ? "Reopen goal" : "Mark goal done"}
                 disabled={readOnly || busyId === g.id}
                 onClick={() => act(g.id, done ? "reopen" : "complete")}
-                className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 transition ${
+                className={`mt-0.5 flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-full border-[1.5px] transition-colors ${
                   done
-                    ? "border-peacock bg-peacock text-silk-50"
-                    : "border-silk-300 text-transparent active:border-peacock"
+                    ? "border-peacock bg-peacock text-white"
+                    : "border-silk-300 text-transparent hover:border-peacock-400 active:border-peacock"
                 }`}
               >
-                {done ? <Check size={14} strokeWidth={3} /> : <Circle size={12} />}
+                {done ? <Check size={13} strokeWidth={3} /> : <Circle size={11} />}
               </button>
             ) : (
-              <Sparkles size={20} className="mt-0.5 shrink-0 text-gold" />
+              <Sparkles size={18} className="mt-0.5 shrink-0 text-gold" />
             )}
             <div className="min-w-0 flex-1">
               <p
@@ -116,14 +114,14 @@ export default function GoalList({
                   <button
                     onClick={() => act(g.id, "accept")}
                     disabled={busyId === g.id}
-                    className="rounded-full bg-peacock px-3 py-1 text-xs font-semibold text-silk-50"
+                    className="rounded-full bg-peacock px-3 py-1 text-xs font-semibold text-white transition-colors hover:bg-peacock-600"
                   >
                     Add to roadmap
                   </button>
                   <button
                     onClick={() => act(g.id, "drop")}
                     disabled={busyId === g.id}
-                    className="flex items-center gap-1 rounded-full border border-silk-300 px-3 py-1 text-xs text-ink-soft"
+                    className="flex items-center gap-1 rounded-full border border-silk-300 px-3 py-1 text-xs text-ink-soft transition-colors hover:bg-silk-100"
                   >
                     <X size={12} /> Skip
                   </button>
@@ -133,6 +131,7 @@ export default function GoalList({
           </li>
         );
       })}
-    </ul>
+      </ul>
+    </div>
   );
 }

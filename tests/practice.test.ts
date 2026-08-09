@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { lastSevenDays, practiceSummary } from "@/lib/practice";
+import { lastSevenDays, practiceSummary, sevenDayBars } from "@/lib/practice";
 
 const TODAY = "2026-08-09";
 
@@ -14,6 +14,26 @@ describe("lastSevenDays", () => {
       "alankaras",
       "varnam",
     ]);
+  });
+});
+
+describe("sevenDayBars", () => {
+  it("returns 7 per-day totals oldest to today", () => {
+    const bars = sevenDayBars(
+      [
+        { day: "2026-08-09", minutes: 30, what: "varnam" },
+        { day: "2026-08-09", minutes: 15, what: "kriti" },
+        { day: "2026-08-05", minutes: 20, what: "alankaras" },
+        { day: "2026-08-01", minutes: 60, what: "out of window" },
+      ],
+      TODAY,
+    );
+    expect(bars).toHaveLength(7);
+    expect(bars).toEqual([0, 0, 20, 0, 0, 0, 45]);
+  });
+
+  it("is all zeros with no entries", () => {
+    expect(sevenDayBars([], TODAY)).toEqual([0, 0, 0, 0, 0, 0, 0]);
   });
 });
 

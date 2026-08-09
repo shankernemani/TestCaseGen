@@ -38,6 +38,17 @@ export function currentStreak(days: Iterable<string>, today: string): number {
   return streak;
 }
 
+/** Which of the last 7 days (oldest → today) had activity. */
+export function lastSevenActive(
+  days: Iterable<string>,
+  today: string,
+): boolean[] {
+  const set = new Set(days);
+  const out: boolean[] = [];
+  for (let i = 6; i >= 0; i--) out.push(set.has(shiftDay(today, -i)));
+  return out;
+}
+
 /** Longest streak ever, for the parent view. */
 export function longestStreak(days: Iterable<string>): number {
   const sorted = [...new Set(days)].sort();

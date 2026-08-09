@@ -4,8 +4,8 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 
 const PROFILES = [
-  { role: "STUDENT", label: "Sarvagna", emoji: "🎶", color: "bg-peacock" },
-  { role: "PARENT", label: "Parent", emoji: "🧭", color: "bg-slate" },
+  { role: "STUDENT", label: "Sarvagna", monogram: "S", color: "bg-peacock" },
+  { role: "PARENT", label: "Parent", monogram: "P", color: "bg-slate" },
 ] as const;
 
 export default function LoginPage() {
@@ -70,9 +70,9 @@ export default function LoginPage() {
             }`}
           >
             <span
-              className={`flex h-14 w-14 items-center justify-center rounded-full text-2xl text-silk-50 ${p.color}`}
+              className={`flex h-14 w-14 items-center justify-center rounded-full font-display text-xl font-bold text-white ${p.color}`}
             >
-              {p.emoji}
+              {p.monogram}
             </span>
             <span className="font-semibold">{p.label}</span>
           </button>

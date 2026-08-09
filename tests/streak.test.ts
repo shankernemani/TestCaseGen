@@ -1,5 +1,18 @@
 import { describe, expect, it } from "vitest";
-import { currentStreak, longestStreak, toDayString } from "@/lib/streak";
+import {
+  currentStreak,
+  lastSevenActive,
+  longestStreak,
+  toDayString,
+} from "@/lib/streak";
+
+describe("lastSevenActive", () => {
+  it("maps the last 7 days oldest to today", () => {
+    expect(
+      lastSevenActive(["2026-08-09", "2026-08-07", "2026-08-01"], "2026-08-09"),
+    ).toEqual([false, false, false, false, true, false, true]);
+  });
+});
 
 describe("currentStreak", () => {
   it("is 0 with no activity", () => {
